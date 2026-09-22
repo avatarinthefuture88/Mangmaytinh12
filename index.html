@@ -1055,6 +1055,19 @@
             border-color: #38bdf8 !important;
         }
 
+        /* FOOTER BẢN QUYỀN */
+        .app-footer {
+            background: #060911;
+            border-top: 1px solid #1e293b;
+            padding: 4px 12px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            letter-spacing: 0.3px;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
     </style>
 </head>
 <body>
@@ -1072,25 +1085,28 @@
                 <span>⭐ 1. Mở Đầu: Giới Thiệu Mạng Máy Tính &bull; Mạng Cáp &amp; Wi-Fi</span>
             </button>
             <button class="tab-btn" onclick="loadTab(1)">
-                <span>🔀 2. Thiết Bị Hub &amp; Switch &bull; Mạng Trường Học</span>
+                <span>🌐 2. Phân Loại Mạng: Mạng LAN, WAN &amp; Internet</span>
             </button>
             <button class="tab-btn" onclick="loadTab(2)">
-                <span>🌐 3. Modem &amp; Router Wi-Fi &bull; Chuỗi WAN - LAN</span>
+                <span>🔀 3. Thiết Bị Hub &amp; Switch &bull; Mạng Trường Học</span>
             </button>
             <button class="tab-btn" onclick="loadTab(3)">
-                <span>🔌 4. Thực Hành Giắc RJ45 &amp; Wi-Fi Win 11</span>
+                <span>📡 4. Modem &amp; Router Wi-Fi &bull; Chuỗi WAN - LAN</span>
             </button>
             <button class="tab-btn" onclick="loadTab(4)">
-                <span>🗺️ 5. Giao Thức Mạng, IP &amp; Bảng Định Tuyến</span>
+                <span>🔌 5. Thực Hành Giắc RJ45 &amp; Wi-Fi Win 11</span>
             </button>
             <button class="tab-btn" onclick="loadTab(5)">
-                <span>📦 6. Giao Thức TCP: Port, Bắt Tay 3 Bước, Tái Hợp &amp; Xử Lý Lỗi</span>
+                <span>🗺️ 6. Giao Thức Mạng, IP &amp; Bảng Định Tuyến</span>
             </button>
             <button class="tab-btn" onclick="loadTab(6)">
-                <span>🌍 7. Dịch Vụ Ứng Dụng: DNS, Web HTTPS, Mail, Ping</span>
+                <span>📦 7. Giao Thức TCP: Port, Bắt Tay 3 Bước, Tái Hợp &amp; Xử Lý Lỗi</span>
             </button>
             <button class="tab-btn" onclick="loadTab(7)">
-                <span>📝 8. Câu Hỏi Trắc Nghiệm: Bài 3 &amp; Bài 4</span>
+                <span>🌍 8. Dịch Vụ Ứng Dụng: DNS, Web HTTPS, Mail, Ping</span>
+            </button>
+            <button class="tab-btn" onclick="loadTab(8)">
+                <span>📝 9. Câu Hỏi Trắc Nghiệm: Bài 3 &amp; Bài 4</span>
             </button>
         </nav>
         <button id="btnFullscreen" class="btn-fullscreen" onclick="toggleFullScreen()" title="Mở rộng toàn màn hình để trình chiếu">&#x26F6; Toàn Màn Hình</button>
@@ -1904,52 +1920,57 @@ let currentTab = 0;
             const hashVal = (window.location.hash || '').replace('#tab', '');
             const hashTab = hashVal ? parseInt(hashVal) : null;
             const targetTab = (paramTab !== null && !isNaN(paramTab)) ? paramTab : ((hashTab !== null && !isNaN(hashTab)) ? hashTab : 0);
-            loadTab(targetTab >= 0 && targetTab <= 7 ? targetTab : 0, false);
+            loadTab(targetTab >= 0 && targetTab <= 8 ? targetTab : 0, false);
 
             if (params.get('sidebar') === '1') {
                 toggleSidebar();
             }
 
             const sub = params.get('sub');
+            const mode = params.get('mode');
+
             if (targetTab === 0) {
                 if (sub) setTab0SubMode(sub);
-                const mode = params.get('mode');
                 if (mode) selectTopo(mode);
             }
             if (targetTab === 1) {
-                const mode = params.get('mode');
+                if (mode) setClassificationMode(mode);
+            }
+            if (targetTab === 2) {
                 if (mode) setTab1Mode(mode);
             }
-            if (targetTab === 2 && sub) {
+            if (targetTab === 3 && sub) {
                 setTab2SubMode(sub);
                 const scope = params.get('scope');
                 if (scope) selectScopeMode(scope);
             }
-            if (targetTab === 3 && sub) {
+            if (targetTab === 4 && sub) {
                 setTab3SubMode(sub);
                 if (sub === 'cmd_lab' && params.get('state')) {
                     setTimeout(() => setCmdNetworkState(params.get('state')), 300);
                 }
             }
-            if (targetTab === 4 && sub) {
+            if (targetTab === 5 && sub) {
                 setTab4SubMode(sub);
             }
-            if (params.get('autostart') === '1' && targetTab === 5) {
-                setTimeout(sendTcpPackets, 400);
-            }
-            if (params.get('tcp_error') === '1' && targetTab === 5) {
-                setTimeout(sendTcpPacketsWithError, 400);
+            if (targetTab === 6) {
+                if (params.get('autostart') === '1') {
+                    setTimeout(sendTcpPackets, 400);
+                }
+                if (params.get('tcp_error') === '1') {
+                    setTimeout(sendTcpPacketsWithError, 400);
+                }
             }
             if (params.get('modal')) {
                 setTimeout(() => openDeviceConceptModal(params.get('modal')), 300);
             }
-            if (targetTab === 6 && sub) {
+            if (targetTab === 7 && sub) {
                 setTab6SubMode(sub);
                 if (params.get('ping_target')) {
                     setTimeout(() => runIcmpPingDemo(params.get('ping_target')), 400);
                 }
             }
-            if (targetTab === 7) {
+            if (targetTab === 8) {
                 if (params.get('lesson')) {
                     selectQuizLesson(params.get('lesson'));
                 }
@@ -1967,7 +1988,7 @@ let currentTab = 0;
                 if (params.get('brief') === '1') {
                     setTimeout(() => {
                         submitQuiz();
-                        setTimeout(() => showBriefAnswersModal(7), 100);
+                        setTimeout(() => showBriefAnswersModal(8), 100);
                     }, 250);
                 }
             }
@@ -1989,22 +2010,24 @@ let currentTab = 0;
             clearCanvas();
 
             if (tabId === 0) renderTab0_Introduction();
-            else if (tabId === 1) renderTab1_HubSwitch();
-            else if (tabId === 2) renderTab2_ModemRouterWan();
-            else if (tabId === 3) {
+            else if (tabId === 1) renderTabClassification_LanWan();
+            else if (tabId === 2) renderTab1_HubSwitch();
+            else if (tabId === 3) renderTab2_ModemRouterWan();
+            else if (tabId === 4) {
                 tab3SubMode = 'types';
                 renderTab3_ConnectRj45Wifi();
             }
-            else if (tabId === 4) {
+            else if (tabId === 5) {
                 tab4SubMode = 'ethernet_proto';
                 tab4RoutingType = 'static';
                 renderTab4_RoutingTable41();
             }
-            else if (tabId === 5) renderTab5_TcpSegmentation();
-            else if (tabId === 6) renderTab6_ApplicationProtocols();
-            else if (tabId === 7) renderTab7_Quiz();
+            else if (tabId === 6) renderTab5_TcpSegmentation();
+            else if (tabId === 7) renderTab6_ApplicationProtocols();
+            else if (tabId === 8) renderTab7_Quiz();
         }
 
+        const renderTab8_Quiz = renderTab7_Quiz;
         function clearCanvas() {
             document.getElementById('svgCables').innerHTML = '';
             document.getElementById('devLayer').innerHTML = '';
@@ -2929,6 +2952,693 @@ function testWirelessSend() {
 
 
         // =========================================================================
+// TAB MỚI: PHÂN LOẠI MẠNG MÁY TÍNH (MẠNG LAN, MẠNG WAN & INTERNET)
+// Chuẩn SGK Tin học 12 (Bài 3) • Mô phỏng trực quan, sinh động, dễ hiểu
+// =========================================================================
+
+let tabClassificationMode = 'overview'; // 'overview', 'lan', 'wan', 'internet'
+let isWanBroken = false;
+
+function renderTabClassification_LanWan() {
+    const titleEl = document.getElementById('stageTitle');
+    if (titleEl) {
+        titleEl.innerHTML = `
+            <span style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:1.3rem;">🌐</span>
+                <span style="color:#38bdf8;">2. Phân Loại Mạng Máy Tính &bull; Mạng Cục Bộ (LAN), Mạng Diện Rộng (WAN) &amp; Mạng INTERNET</span>
+            </span>
+        `;
+    }
+
+    let controlsHtml = `
+        <div style="display:flex; flex-direction:column; gap:7px; width:100%;">
+            <!-- Hàng 1: Chọn Chế Độ Phân Loại -->
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; gap:6px; background:#090d16; padding:3px 8px; border-radius:8px; border:1px solid #334155; align-items:center;">
+                    <span style="font-size:0.82rem; font-weight:800; color:#cbd5e1;">Chế độ:</span>
+                    <button class="btn ${tabClassificationMode==='overview' ? 'btn-blue' : 'btn-outline'}" style="padding:4px 10px; font-size:0.8rem; font-weight:bold;" onclick="setClassificationMode('overview')">
+                        1. So Sánh 3 Cấp Độ (Tổng Quan)
+                    </button>
+                    <button class="btn ${tabClassificationMode==='lan' ? 'btn-green' : 'btn-outline'}" style="padding:4px 10px; font-size:0.8rem; font-weight:bold;" onclick="setClassificationMode('lan')">
+                        2. Mạng Cục Bộ (LAN)
+                    </button>
+                    <button class="btn ${tabClassificationMode==='wan' ? 'btn-amber' : 'btn-outline'}" style="padding:4px 10px; font-size:0.8rem; font-weight:bold;" onclick="setClassificationMode('wan')">
+                        3. Mạng Diện Rộng (WAN)
+                    </button>
+                    <button class="btn ${tabClassificationMode==='internet' ? 'btn-purple' : 'btn-outline'}" style="padding:4px 10px; font-size:0.8rem; font-weight:bold;" onclick="setClassificationMode('internet')">
+                        4. Mạng Toàn Cầu (INTERNET)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hàng 2: Thao Tác Tương Tác Trực Quan -->
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; width:100%;">
+                <span style="font-size:0.8rem; color:#cbd5e1; font-weight:bold;">Thao Tác:</span>
+    `;
+
+    if (tabClassificationMode === 'overview') {
+        controlsHtml += `
+            <button class="btn btn-blue" style="font-size:0.82rem; padding:4px 12px;" onclick="runOverviewComparison()">
+                ⚡ Thử Truyền Tin Đồng Thời Trên 3 Cấp Độ (So Sánh Độ Trễ &amp; Băng Thông)
+            </button>
+        `;
+    } else if (tabClassificationMode === 'lan') {
+        controlsHtml += `
+            <button class="btn btn-green" style="font-size:0.82rem; padding:4px 12px;" onclick="runLanFileShare()">
+                💻 Truyền Tệp Tin Nội Bộ (Gigabit 1000 Mbps - 0đ Cước Internet)
+            </button>
+            <button class="btn btn-cyan" style="font-size:0.82rem; padding:4px 12px;" onclick="runLanPrint()">
+                🖨️ Chia Sẻ Máy In Trong Mạng LAN Trường Học
+            </button>
+        `;
+    } else if (tabClassificationMode === 'wan') {
+        controlsHtml += `
+            <button class="btn btn-amber" style="font-size:0.82rem; padding:4px 12px;" onclick="runWanTransfer()">
+                🏢 Gửi Dữ Liệu Từ THPT Phan Chu Trinh (Cư Jút) Đến Sở GD&ĐT
+            </button>
+            <button class="btn ${isWanBroken ? 'btn-green' : 'btn-red'}" style="font-size:0.82rem; padding:4px 12px;" onclick="toggleWanCut()">
+                ${isWanBroken ? '🔧 Hàn Gắn Cáp Quang Viễn Thông' : '⚡ Cắt Thử Cáp Quang Chính (Xem Router Chuyển Dự Phòng)'}
+            </button>
+        `;
+    } else if (tabClassificationMode === 'internet') {
+        controlsHtml += `
+            <button class="btn btn-purple" style="font-size:0.82rem; padding:4px 12px;" onclick="runInternetWebAccess()">
+                🌐 Truy Cập Dịch Vụ Web Toàn Cầu (Việt Nam ➔ Máy Chủ Quốc Tế)
+            </button>
+            <button class="btn btn-blue" style="font-size:0.82rem; padding:4px 12px;" onclick="runInternetEmail()">
+                📨 Gửi Email Quốc Tế Qua Tuyến Cáp Quang Biển
+            </button>
+        `;
+    }
+
+    controlsHtml += `</div></div>`;
+    const controlsEl = document.getElementById('stageControls');
+    if (controlsEl) controlsEl.innerHTML = controlsHtml;
+
+    updateClassificationSidebar();
+    drawClassificationStage();
+}
+
+function setClassificationMode(mode) {
+    Sound.click();
+    tabClassificationMode = mode;
+    isWanBroken = false;
+    renderTabClassification_LanWan();
+}
+
+function updateClassificationSidebar() {
+    const sideHead = document.getElementById('sideHead');
+    const sideContent = document.getElementById('sideContent');
+    if (!sideHead || !sideContent) return;
+
+    sideHead.innerHTML = `<span>📖 BÀI 3: PHÂN LOẠI MẠNG MÁY TÍNH</span>`;
+    sideContent.innerHTML = `
+        <div class="box-info">
+            <div class="box-title">1. MẠNG CỤC BỘ (LAN - LOCAL AREA NETWORK)</div>
+            <div class="box-desc">
+                • <b>Định nghĩa:</b> Mạng kết nối các máy tính và thiết bị trong một <b>phạm vi địa lý hẹp</b> như một phòng học, một gia đình, một cơ quan hay trường học.<br>
+                • <b>Đặc điểm:</b> Bán kính truyền dẫn ngắn (dưới vài trăm mét), <b>tốc độ rất cao</b> (100 Mbps - 1 Gbps), chi phí lắp đặt thấp và thuộc quyền quản lý của một tổ chức/cá nhân.<br>
+                • <b>Thiết bị chính:</b> Bộ chuyển mạch (Switch), Access Point, Máy tính, Máy in mạng.
+            </div>
+        </div>
+
+        <div class="box-info" style="margin-top:10px;">
+            <div class="box-title">2. MẠNG DIỆN RỘNG (WAN - WIDE AREA NETWORK)</div>
+            <div class="box-desc">
+                • <b>Định nghĩa:</b> Mạng được tạo thành bằng cách <b>kết nối các mạng LAN lại với nhau</b> ở các vị trí địa lý cách xa nhau (như giữa các huyện, tỉnh, thành phố hoặc các quốc gia).<br>
+                • <b>Đặc điểm:</b> Sử dụng hạ tầng truyền dẫn viễn thông công cộng (đường truyền thuê riêng, cáp quang biển, vệ tinh) của nhà mạng (ISP).<br>
+                • <b>Thiết bị then chốt:</b> Bộ định tuyến (Router) đóng vai trò tìm đường và chuyển tiếp gói tin giữa các mạng LAN thành phần.
+            </div>
+        </div>
+
+        <div class="box-info" style="margin-top:10px;">
+            <div class="box-title">3. MẠNG TOÀN CẦU (INTERNET)</div>
+            <div class="box-desc">
+                • <b>Định nghĩa:</b> Là <b>"mạng của các mạng" (Network of Networks)</b> trên phạm vi toàn thế giới, kết nối hàng triệu mạng LAN, WAN khắp năm châu.<br>
+                • <b>Giao thức chuẩn:</b> Tất cả thiết bị trên Internet liên lạc với nhau thông qua bộ giao thức chung <b>TCP/IP</b>.<br>
+                • <b>Dịch vụ tiêu biểu:</b> Web (WWW), Email, Tìm kiếm, Đào tạo trực tuyến, Lưu trữ đám mây.
+            </div>
+        </div>
+
+        <div class="box-info" style="margin-top:10px; background:rgba(56,189,248,0.06); border-color:#0284c7;">
+            <div class="box-title" style="color:#38bdf8;">BẢNG SO SÁNH 4 TIÊU CHÍ SGK TIN 12:</div>
+            <table style="width:100%; font-size:0.75rem; border-collapse:collapse; margin-top:6px; color:#cbd5e1;">
+                <thead>
+                    <tr style="background:#0f172a; color:#38bdf8; border-bottom:1px solid #334155;">
+                        <th style="padding:4px; text-align:left;">Tiêu chí</th>
+                        <th style="padding:4px;">LAN</th>
+                        <th style="padding:4px;">WAN</th>
+                        <th style="padding:4px;">Internet</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom:1px solid #1e293b;">
+                        <td style="padding:4px; font-weight:bold; color:#f8fafc;">Phạm vi</td>
+                        <td style="padding:4px; text-align:center;">Phòng, trường (&lt;100m)</td>
+                        <td style="padding:4px; text-align:center;">Tỉnh, quốc gia</td>
+                        <td style="padding:4px; text-align:center;">Toàn cầu</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #1e293b;">
+                        <td style="padding:4px; font-weight:bold; color:#f8fafc;">Thiết bị</td>
+                        <td style="padding:4px; text-align:center;">Switch, AP</td>
+                        <td style="padding:4px; text-align:center;">Router, Viễn thông</td>
+                        <td style="padding:4px; text-align:center;">Hệ thống Gateway</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #1e293b;">
+                        <td style="padding:4px; font-weight:bold; color:#f8fafc;">Tốc độ</td>
+                        <td style="padding:4px; text-align:center; color:#10b981;">Rất cao (1Gbps)</td>
+                        <td style="padding:4px; text-align:center; color:#f59e0b;">Trung bình</td>
+                        <td style="padding:4px; text-align:center; color:#38bdf8;">Tùy gói cước</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:4px; font-weight:bold; color:#f8fafc;">Sở hữu</td>
+                        <td style="padding:4px; text-align:center;">Trường / Cá nhân</td>
+                        <td style="padding:4px; text-align:center;">Doanh nghiệp / ISP</td>
+                        <td style="padding:4px; text-align:center;">Toàn nhân loại</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function drawClassificationStage() {
+    clearCanvas();
+    const devLayer = document.getElementById('devLayer');
+    const svg = document.getElementById('svgCables');
+
+    if (tabClassificationMode === 'overview') {
+        // CHẾ ĐỘ 1: TOÀN CẢNH SO SÁNH 3 CẤP ĐỘ
+        const panels = `
+            <!-- Cột 1: Mạng LAN -->
+            <div style="position:absolute; left:2.5%; top:15px; width:30%; height:395px; border:1.8px dashed rgba(16, 185, 129, 0.55); border-radius:12px; background:rgba(16, 185, 129, 0.04); pointer-events:none; z-index:1;">
+                <span style="position:absolute; top:-12px; left:14px; font-size:0.78rem; font-weight:900; color:#10b981; text-transform:uppercase; background:#0d1527; padding:2px 10px; border:1.5px solid #10b981; border-radius:6px; z-index:10;">
+                    💻 1. MẠNG CỤC BỘ (LAN)
+                </span>
+                <div style="position:absolute; bottom:10px; left:10px; right:10px; background:rgba(15,23,42,0.85); border:1px solid #1e293b; border-radius:8px; padding:8px 10px; font-size:0.75rem; color:#cbd5e1; line-height:1.4;">
+                    <b style="color:#10b981;">Đặc trưng cốt lõi:</b><br>
+                    • Phạm vi hẹp (phòng học, gia đình)<br>
+                    • Tốc độ siêu nhanh: 100 - 1000 Mbps<br>
+                    • Thiết bị chính: Switch, Cáp UTP, Wi-Fi
+                </div>
+            </div>
+
+            <!-- Cột 2: Mạng WAN -->
+            <div style="position:absolute; left:35%; top:15px; width:30%; height:395px; border:1.8px dashed rgba(245, 158, 11, 0.55); border-radius:12px; background:rgba(245, 158, 11, 0.04); pointer-events:none; z-index:1;">
+                <span style="position:absolute; top:-12px; left:14px; font-size:0.78rem; font-weight:900; color:#f59e0b; text-transform:uppercase; background:#0d1527; padding:2px 10px; border:1.5px solid #f59e0b; border-radius:6px; z-index:10;">
+                    🏢 2. MẠNG DIỆN RỘNG (WAN)
+                </span>
+                <div style="position:absolute; bottom:10px; left:10px; right:10px; background:rgba(15,23,42,0.85); border:1px solid #1e293b; border-radius:8px; padding:8px 10px; font-size:0.75rem; color:#cbd5e1; line-height:1.4;">
+                    <b style="color:#f59e0b;">Đặc trưng cốt lõi:</b><br>
+                    • Kết nối các mạng LAN cách xa nhau<br>
+                    • Phạm vi một tỉnh, quốc gia, lục địa<br>
+                    • Thiết bị then chốt: Bộ định tuyến (Router)
+                </div>
+            </div>
+
+            <!-- Cột 3: Mạng INTERNET -->
+            <div style="position:absolute; left:67.5%; top:15px; width:30%; height:395px; border:1.8px dashed rgba(56, 189, 248, 0.55); border-radius:12px; background:rgba(56, 189, 248, 0.04); pointer-events:none; z-index:1;">
+                <span style="position:absolute; top:-12px; left:14px; font-size:0.78rem; font-weight:900; color:#38bdf8; text-transform:uppercase; background:#0d1527; padding:2px 10px; border:1.5px solid #38bdf8; border-radius:6px; z-index:10;">
+                    🌐 3. MẠNG TOÀN CẦU (INTERNET)
+                </span>
+                <div style="position:absolute; bottom:10px; left:10px; right:10px; background:rgba(15,23,42,0.85); border:1px solid #1e293b; border-radius:8px; padding:8px 10px; font-size:0.75rem; color:#cbd5e1; line-height:1.4;">
+                    <b style="color:#38bdf8;">Đặc trưng cốt lõi:</b><br>
+                    • "Mạng của các mạng" trên toàn thế giới<br>
+                    • Dùng chung bộ giao thức chuẩn TCP/IP<br>
+                    • Kết nối hàng triệu LAN &amp; WAN quốc tế
+                </div>
+            </div>
+        `;
+        devLayer.innerHTML = panels;
+
+        // Thiết bị đại diện trong 3 cột (Sắp xếp cân đối, không đè lấn nhau)
+        const devices = [
+            // Cột 1 (LAN): Switch ở trên, PC và Máy in ở dưới
+            { id: 'ov_lan_sw', name: 'Switch Phòng Máy', sub: 'Mạng LAN Cục Bộ', x: 17.5, y: 80, color: '#10b981', svg: DeviceArt.switch({ width: 95, height: 40 }) },
+            { id: 'ov_lan_pc', name: 'PC Học Sinh', sub: '192.168.1.10', x: 10.5, y: 195, color: '#10b981', svg: DeviceArt.pc({ width: 52, height: 38 }) },
+            { id: 'ov_lan_prn', name: 'Máy In LAN', sub: 'Chia sẻ dùng chung', x: 24.5, y: 195, color: '#10b981', svg: DeviceArt.printer({ width: 52, height: 38 }) },
+
+            // Cột 2 (WAN): 2 Router hai đầu nối về Tổng đài viễn thông ISP ở dưới
+            { id: 'ov_wan_rtr1', name: 'Router THPT Phan Chu Trinh', sub: 'Cư Jút (LAN 1)', x: 41, y: 85, color: '#f59e0b', svg: DeviceArt.router({ width: 95, height: 44 }) },
+            { id: 'ov_wan_rtr2', name: 'Router Điểm Cầu Sở', sub: 'Sở GD&ĐT (LAN 2)', x: 59, y: 85, color: '#f59e0b', svg: DeviceArt.router({ width: 95, height: 44 }) },
+            { id: 'ov_wan_isp', name: 'Đường Truyền Viễn Thông WAN', sub: 'Hạ tầng VNPT / Viettel', x: 50, y: 200, color: '#f59e0b', svg: DeviceArt.modem({ width: 105, height: 44 }) },
+
+            // Cột 3 (Internet): Gateway VN & Cloud Server nối qua Trục cáp biển quốc tế
+            { id: 'ov_net_vn', name: 'Trạm Cổng Quốc Gia', sub: 'Gateway Việt Nam', x: 73.5, y: 85, color: '#38bdf8', svg: DeviceArt.router({ width: 95, height: 44 }) },
+            { id: 'ov_net_cloud', name: 'Cloud Server Quốc Tế', sub: 'Google / VnEdu / Cloud', x: 91.5, y: 85, color: '#a855f7', svg: DeviceArt.server({ width: 80, height: 46 }) },
+            { id: 'ov_net_globe', name: 'Hạ Tầng Cáp Quang Biển', sub: 'Tuyến Quốc Tế APG / AAG', x: 82.5, y: 200, color: '#38bdf8', svg: DeviceArt.internetGlobe({ width: 68, height: 46 }) }
+        ];
+
+        devices.forEach(d => {
+            const el = document.createElement('div');
+            el.id = d.id;
+            el.className = 'dev-box';
+            el.style.left = d.x + '%';
+            el.style.top = d.y + 'px';
+            el.style.borderColor = d.color;
+            el.style.zIndex = '5';
+            el.style.minWidth = '112px';
+            el.style.maxWidth = '130px';
+            el.style.padding = '6px 8px';
+            el.innerHTML = `
+                <div class="dev-icon" style="margin-bottom:2px;">${d.svg}</div>
+                <div class="dev-name" style="color:${d.color}; font-size:0.76rem; white-space:normal; line-height:1.2;">${d.name}</div>
+                <div class="dev-sub" style="font-size:0.66rem; white-space:normal; line-height:1.15;">${d.sub}</div>
+            `;
+            devLayer.appendChild(el);
+        });
+
+        // Đường nối cáp trong từng cột
+        svg.innerHTML = `
+            <!-- Cáp cột 1: LAN -->
+            <line x1="10.5%" y1="195" x2="17.5%" y2="80" stroke="#10b981" stroke-width="2.5"/>
+            <line x1="24.5%" y1="195" x2="17.5%" y2="80" stroke="#10b981" stroke-width="2.5"/>
+            <text x="17.5%" y="145" fill="#10b981" font-size="10" font-weight="bold" text-anchor="middle">Cáp LAN Gigabit</text>
+
+            <!-- Cáp cột 2: WAN -->
+            <line x1="41%" y1="85" x2="50%" y2="200" stroke="#f59e0b" stroke-width="3"/>
+            <line x1="59%" y1="85" x2="50%" y2="200" stroke="#f59e0b" stroke-width="3"/>
+            <line x1="41%" y1="85" x2="59%" y2="85" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5 4"/>
+            <text x="50%" y="75" fill="#fbbf24" font-size="10" font-weight="bold" text-anchor="middle">Khoảng cách &gt; 100 Km</text>
+
+            <!-- Cáp cột 3: Internet -->
+            <line x1="73.5%" y1="85" x2="82.5%" y2="200" stroke="#38bdf8" stroke-width="3"/>
+            <line x1="91.5%" y1="85" x2="82.5%" y2="200" stroke="#a855f7" stroke-width="3"/>
+            <text x="82.5%" y="245" fill="#38bdf8" font-size="10" font-weight="bold" text-anchor="middle">Cáp Quang Biển Quốc Tế</text>
+        `;
+    } else if (tabClassificationMode === 'lan') {
+        // CHẾ ĐỘ 2: MẠNG CỤC BỘ (LAN) TRONG TRƯỜNG HỌC
+        const panels = `
+            <div style="position:absolute; left:4%; top:20px; width:92%; height:385px; border:2px dashed rgba(16, 185, 129, 0.6); border-radius:12px; background:rgba(16, 185, 129, 0.04); pointer-events:none; z-index:1;">
+                <span style="position:absolute; top:-13px; left:20px; font-size:0.82rem; font-weight:900; color:#10b981; text-transform:uppercase; background:#0d1527; padding:2px 14px; border:1.8px solid #10b981; border-radius:6px; z-index:10;">
+                    🏫 MẠNG CỤC BỘ (LAN) &bull; PHÒNG THỰC HÀNH TIN HỌC TRƯỜNG THPT PHAN CHU TRINH
+                </span>
+                <div style="position:absolute; bottom:12px; left:20px; right:20px; background:rgba(15,23,42,0.9); border:1px solid #334155; border-radius:8px; padding:8px 16px; font-size:0.82rem; color:#cbd5e1; display:flex; justify-content:space-between; align-items:center;">
+                    <span>⚡ <b>Băng thông:</b> 1000 Mbps (Gigabit LAN)</span>
+                    <span>🔒 <b>Bảo mật:</b> Nội bộ trường học</span>
+                    <span>💰 <b>Cước phí truyền tin:</b> 0 VNĐ (Không tốn cước Internet)</span>
+                </div>
+            </div>
+        `;
+        devLayer.innerHTML = panels;
+
+        const devices = [
+            { id: 'lan_sw', name: 'Switch Trung Tâm Phòng Tin', sub: 'Mạng LAN 1 Gbps (192.168.1.1)', x: 50, y: 130, color: '#10b981', svg: DeviceArt.switch({ width: 175, height: 60 }) },
+            { id: 'lan_pc_gv', name: 'PC Giáo Viên', sub: '192.168.1.10 (Bên Gửi)', x: 18, y: 295, color: '#38bdf8', svg: DeviceArt.pc({ width: 80, height: 58 }) },
+            { id: 'lan_pc_hs1', name: 'PC Học Sinh 1', sub: '192.168.1.11', x: 38, y: 295, color: '#94a3b8', svg: DeviceArt.pc({ width: 75, height: 54 }) },
+            { id: 'lan_pc_hs2', name: 'PC Học Sinh 2', sub: '192.168.1.12', x: 62, y: 295, color: '#94a3b8', svg: DeviceArt.pc({ width: 75, height: 54 }) },
+            { id: 'lan_printer', name: 'Máy In Mạng LAN', sub: '192.168.1.200 (Dùng Chung)', x: 82, y: 295, color: '#f59e0b', svg: DeviceArt.printer({ width: 80, height: 58 }) }
+        ];
+
+        devices.forEach(d => {
+            const el = document.createElement('div');
+            el.id = d.id;
+            el.className = 'dev-box';
+            el.style.left = d.x + '%';
+            el.style.top = d.y + 'px';
+            el.style.borderColor = d.color;
+            el.style.zIndex = '5';
+            el.innerHTML = `
+                <div class="dev-icon" style="margin-bottom:3px;">${d.svg}</div>
+                <div class="dev-name" style="color:${d.color}; font-size:0.92rem;">${d.name}</div>
+                <div class="dev-sub" style="font-size:0.75rem;">${d.sub}</div>
+            `;
+            devLayer.appendChild(el);
+        });
+
+        svg.innerHTML = `
+            <line x1="50%" y1="130" x2="18%" y2="295" stroke="#10b981" stroke-width="4.5"/>
+            <line x1="50%" y1="130" x2="38%" y2="295" stroke="#10b981" stroke-width="4"/>
+            <line x1="50%" y1="130" x2="62%" y2="295" stroke="#10b981" stroke-width="4"/>
+            <line x1="50%" y1="130" x2="82%" y2="295" stroke="#10b981" stroke-width="4.5"/>
+            <text x="50%" y="220" fill="#34d399" font-size="11" font-weight="bold" text-anchor="middle">Cáp Mạng UTP Chuẩn Gigabit (Cat6)</text>
+        `;
+    } else if (tabClassificationMode === 'wan') {
+        // CHẾ ĐỘ 3: MẠNG DIỆN RỘNG (WAN)
+        const panels = `
+            <!-- Vùng 1: THPT Phan Chu Trinh (Cư Jút) -->
+            <div style="position:absolute; left:3%; top:25px; width:34%; height:375px; border:2px dashed rgba(16, 185, 129, 0.55); border-radius:12px; background:rgba(16, 185, 129, 0.04); pointer-events:none; z-index:1;">
+                <span style="position:absolute; top:-13px; left:14px; font-size:0.78rem; font-weight:900; color:#10b981; text-transform:uppercase; background:#0d1527; padding:2px 10px; border:1.5px solid #10b981; border-radius:6px; z-index:10;">
+                    🏫 MẠNG LAN 1: THPT PHAN CHU TRINH (CƯ JÚT)
+                </span>
+            </div>
+
+            <!-- Vùng 2: Hạ tầng viễn thông WAN của ISP -->
+            <div style="position:absolute; left:39%; top:25px; width:22%; height:375px; border:2px dashed rgba(245, 158, 11, 0.55); border-radius:12px; background:rgba(245, 158, 11, 0.05); pointer-events:none; z-index:1;">
+                <span style="position:absolute; top:-13px; left:14px; font-size:0.76rem; font-weight:900; color:#f59e0b; text-transform:uppercase; background:#0d1527; padding:2px 8px; border:1.5px solid #f59e0b; border-radius:6px; z-index:10;">
+                    📡 HẠ TẦNG VIỄN THÔNG (WAN)
+                </span>
+                <div style="position:absolute; bottom:12px; left:8px; right:8px; text-align:center; font-size:0.74rem; color:#cbd5e1;">
+                    Nhà Mạng Viễn Thông (ISP)<br>
+                    <b style="color:#f59e0b;">Cáp Quang Đường Trục &amp; Vệ Tinh</b>
+                </div>
+            </div>
+
+            <!-- Vùng 3: Điểm cầu Sở GD&ĐT -->
+            <div style="position:absolute; left:63%; top:25px; width:34%; height:375px; border:2px dashed rgba(56, 189, 248, 0.55); border-radius:12px; background:rgba(56, 189, 248, 0.04); pointer-events:none; z-index:1;">
+                <span style="position:absolute; top:-13px; left:14px; font-size:0.78rem; font-weight:900; color:#38bdf8; text-transform:uppercase; background:#0d1527; padding:2px 10px; border:1.5px solid #38bdf8; border-radius:6px; z-index:10;">
+                    🏢 MẠNG LAN 2: ĐIỂM CẦU SỞ GD&amp;ĐT / TRUNG TÂM
+                </span>
+            </div>
+        `;
+        devLayer.innerHTML = panels;
+
+        const devices = [
+            // LAN 1 (Trường)
+            { id: 'wan_pc1', name: 'PC Văn Phòng Trường', sub: '192.168.10.5 (Cư Jút)', x: 12, y: 210, color: '#10b981', svg: DeviceArt.pc({ width: 75, height: 54 }) },
+            { id: 'wan_rtr1', name: 'Router THPT Phan Chu Trinh', sub: 'Gateway WAN: 113.160.1.10', x: 28, y: 210, color: '#f59e0b', svg: DeviceArt.router({ width: 125, height: 55 }) },
+
+            // Hạ tầng WAN ISP ở giữa
+            { id: 'wan_isp_node', name: 'Tổng Đài Viễn Thông ISP', sub: isWanBroken ? '⚠️ ĐỨT CÁP CHÍNH (Đang chạy vệ tinh)' : 'Tuyến Cáp Quang Đường Trục Quốc Gia', x: 50, y: 210, color: isWanBroken ? '#ef4444' : '#f59e0b', svg: DeviceArt.modem({ width: 130, height: 55 }) },
+
+            // LAN 2 (Sở)
+            { id: 'wan_rtr2', name: 'Router Điểm Cầu Sở', sub: 'Gateway WAN: 113.160.2.20', x: 72, y: 210, color: '#f59e0b', svg: DeviceArt.router({ width: 125, height: 55 }) },
+            { id: 'wan_srv2', name: 'Máy Chủ Cơ Sở Dữ Liệu', sub: '10.0.0.100 (CSDL Điểm Toàn Tỉnh)', x: 88, y: 210, color: '#38bdf8', svg: DeviceArt.server({ width: 85, height: 55 }) }
+        ];
+
+        devices.forEach(d => {
+            const el = document.createElement('div');
+            el.id = d.id;
+            el.className = 'dev-box';
+            el.style.left = d.x + '%';
+            el.style.top = d.y + 'px';
+            el.style.borderColor = d.color;
+            el.style.zIndex = '5';
+            el.innerHTML = `
+                <div class="dev-icon" style="margin-bottom:3px;">${d.svg}</div>
+                <div class="dev-name" style="color:${d.color}; font-size:0.86rem;">${d.name}</div>
+                <div class="dev-sub" style="font-size:0.72rem;">${d.sub}</div>
+            `;
+            devLayer.appendChild(el);
+        });
+
+        const mainLineStroke = isWanBroken ? '#ef4444' : '#f59e0b';
+        const mainLineDash = isWanBroken ? '6 6' : 'none';
+
+        svg.innerHTML = `
+            <!-- Cáp nội bộ LAN 1 -->
+            <line x1="12%" y1="210" x2="28%" y2="210" stroke="#10b981" stroke-width="4"/>
+            <text x="20%" y="195" fill="#34d399" font-size="10.5" font-weight="bold" text-anchor="middle">Cáp LAN</text>
+
+            <!-- Tuyến WAN chính 1: Router 1 -> ISP -->
+            <line x1="28%" y1="210" x2="50%" y2="210" stroke="${mainLineStroke}" stroke-width="5" stroke-dasharray="${mainLineDash}"/>
+            <!-- Tuyến WAN chính 2: ISP -> Router 2 -->
+            <line x1="50%" y1="210" x2="72%" y2="210" stroke="${mainLineStroke}" stroke-width="5" stroke-dasharray="${mainLineDash}"/>
+            <text x="50%" y="185" fill="${isWanBroken ? '#ef4444' : '#fbbf24'}" font-size="11" font-weight="bold" text-anchor="middle">
+                ${isWanBroken ? '❌ TUYẾN CHÍNH BỊ ĐỨT' : 'Đường Thuê Riêng Leased-Line / Cáp Quang Viễn Thông (WAN)'}
+            </text>
+
+            <!-- Tuyến Dự Phòng Vệ Tinh (Cong ở trên) -->
+            <path d="M 28% 180 Q 50% 90 72% 180" fill="none" stroke="${isWanBroken ? '#10b981' : '#475569'}" stroke-width="${isWanBroken ? '4' : '2'}" stroke-dasharray="6 4"/>
+            <text x="50%" y="105" fill="${isWanBroken ? '#34d399' : '#64748b'}" font-size="10.5" font-weight="bold" text-anchor="middle">
+                🛰️ Tuyến Dự Phòng Sóng Vệ Tinh ${isWanBroken ? '(ĐANG HOẠT ĐỘNG THAY THẾ)' : '(Chờ dự phòng)'}
+            </text>
+
+            <!-- Cáp nội bộ LAN 2 -->
+            <line x1="72%" y1="210" x2="88%" y2="210" stroke="#38bdf8" stroke-width="4"/>
+            <text x="80%" y="195" fill="#38bdf8" font-size="10.5" font-weight="bold" text-anchor="middle">Cáp LAN</text>
+        `;
+    } else if (tabClassificationMode === 'internet') {
+        // CHẾ ĐỘ 4: MẠNG TOÀN CẦU (INTERNET)
+        const panels = `
+            <div style="position:absolute; left:4%; top:20px; width:92%; height:385px; border:2px dashed rgba(56, 189, 248, 0.55); border-radius:12px; background:rgba(56, 189, 248, 0.04); pointer-events:none; z-index:1;">
+                <span style="position:absolute; top:-13px; left:20px; font-size:0.82rem; font-weight:900; color:#38bdf8; text-transform:uppercase; background:#0d1527; padding:2px 14px; border:1.8px solid #38bdf8; border-radius:6px; z-index:10;">
+                    🌐 MẠNG TOÀN CẦU (INTERNET) &bull; MẠNG CỦA CÁC MẠNG KẾT NỐI TOÀN THẾ GIỚI
+                </span>
+                <div style="position:absolute; bottom:12px; left:20px; right:20px; background:rgba(15,23,42,0.9); border:1px solid #334155; border-radius:8px; padding:8px 16px; font-size:0.82rem; color:#cbd5e1; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🌍 <b>Quy mô:</b> Toàn bộ các châu lục</span>
+                    <span>🤝 <b>Giao thức chung:</b> Bộ giao thức TCP/IP</span>
+                    <span>📦 <b>Dịch vụ:</b> World Wide Web, Email, Cloud, Streaming...</span>
+                </div>
+            </div>
+        `;
+        devLayer.innerHTML = panels;
+
+        const devices = [
+            { id: 'net_pc_client', name: 'PC Học Sinh Việt Nam', sub: 'THPT Phan Chu Trinh (Cư Jút)', x: 14, y: 210, color: '#10b981', svg: DeviceArt.pc({ width: 80, height: 58 }) },
+            { id: 'net_gw_isp', name: 'Cổng Ra Quốc Gia (VNPT/Viettel)', sub: 'Trạm Gateway Quốc Tế Việt Nam', x: 38, y: 210, color: '#f59e0b', svg: DeviceArt.router({ width: 125, height: 55 }) },
+            { id: 'net_cable_ocean', name: 'Trục Cáp Quang Biển', sub: 'Tuyến APG / AAG (Dưới đáy biển)', x: 62, y: 210, color: '#0284c7', svg: DeviceArt.internetGlobe({ width: 85, height: 60 }) },
+            { id: 'net_cloud_srv', name: 'Máy Chủ Dịch Vụ Toàn Cầu', sub: 'Google / YouTube / VnEdu Cloud', x: 86, y: 210, color: '#a855f7', svg: DeviceArt.server({ width: 95, height: 60 }) }
+        ];
+
+        devices.forEach(d => {
+            const el = document.createElement('div');
+            el.id = d.id;
+            el.className = 'dev-box';
+            el.style.left = d.x + '%';
+            el.style.top = d.y + 'px';
+            el.style.borderColor = d.color;
+            el.style.zIndex = '5';
+            el.innerHTML = `
+                <div class="dev-icon" style="margin-bottom:3px;">${d.svg}</div>
+                <div class="dev-name" style="color:${d.color}; font-size:0.88rem;">${d.name}</div>
+                <div class="dev-sub" style="font-size:0.72rem;">${d.sub}</div>
+            `;
+            devLayer.appendChild(el);
+        });
+
+        svg.innerHTML = `
+            <!-- Cáp LAN -> Gateway -->
+            <line x1="14%" y1="210" x2="38%" y2="210" stroke="#10b981" stroke-width="4.5"/>
+            <text x="26%" y="192" fill="#34d399" font-size="11" font-weight="bold" text-anchor="middle">Đường Truyền Internet Cáp Quang</text>
+
+            <!-- Gateway -> Cáp biển -->
+            <line x1="38%" y1="210" x2="62%" y2="210" stroke="#0284c7" stroke-width="5" stroke-dasharray="8 4"/>
+            <text x="50%" y="192" fill="#38bdf8" font-size="11" font-weight="bold" text-anchor="middle">Tuyến Cáp Quang Biển Quốc Tế</text>
+
+            <!-- Cáp biển -> Server -->
+            <line x1="62%" y1="210" x2="86%" y2="210" stroke="#a855f7" stroke-width="5"/>
+            <text x="74%" y="192" fill="#c084fc" font-size="11" font-weight="bold" text-anchor="middle">Backbone Data Center</text>
+        `;
+    }
+}
+
+// HOẠT HỌA 1: SO SÁNH 3 CẤP ĐỘ ĐỒNG THỜI
+function runOverviewComparison() {
+    Sound.packet();
+    const pLayer = document.getElementById('packetLayer');
+    pLayer.innerHTML = '';
+
+    // Gói 1: LAN (Cực nhanh, 300ms)
+    const pLan = document.createElement('div');
+    pLan.className = 'packet';
+    pLan.style.background = '#10b981';
+    pLan.innerHTML = '⚡ Gói LAN (1 ms)';
+    pLayer.appendChild(pLan);
+
+    // Gói 2: WAN (Trung bình, 800ms)
+    const pWan = document.createElement('div');
+    pWan.className = 'packet';
+    pWan.style.background = '#f59e0b';
+    pWan.innerHTML = '🏢 Gói WAN (25 ms)';
+    pLayer.appendChild(pWan);
+
+    // Gói 3: Internet (Xuyên lục địa, 1200ms)
+    const pNet = document.createElement('div');
+    pNet.className = 'packet';
+    pNet.style.background = '#38bdf8';
+    pNet.innerHTML = '🌐 Gói Internet (120 ms)';
+    pLayer.appendChild(pNet);
+
+    // Bắn gói tin LAN
+    animateElement(pLan, { left: '10.5%', top: '195px' }, { left: '17.5%', top: '80px' }, 200, () => {
+        animateElement(pLan, { left: '17.5%', top: '80px' }, { left: '24.5%', top: '195px' }, 200, () => {
+            Sound.ok();
+            highlightDev('ov_lan_prn', '#10b981');
+            pLan.innerHTML = '✅ LAN: Đến đích tức thì!';
+            setTimeout(() => pLan.remove(), 1600);
+        });
+    });
+
+    // Bắn gói tin WAN
+    animateElement(pWan, { left: '41%', top: '85px' }, { left: '50%', top: '200px' }, 450, () => {
+        highlightDev('ov_wan_isp', '#f59e0b');
+        animateElement(pWan, { left: '50%', top: '200px' }, { left: '59%', top: '85px' }, 450, () => {
+            Sound.ok();
+            highlightDev('ov_wan_rtr2', '#f59e0b');
+            pWan.innerHTML = '✅ WAN: Đến đích an toàn!';
+            setTimeout(() => pWan.remove(), 1600);
+        });
+    });
+
+    // Bắn gói tin Internet
+    animateElement(pNet, { left: '73.5%', top: '85px' }, { left: '82.5%', top: '200px' }, 650, () => {
+        highlightDev('ov_net_globe', '#38bdf8');
+        animateElement(pNet, { left: '82.5%', top: '200px' }, { left: '91.5%', top: '85px' }, 650, () => {
+            Sound.ding();
+            highlightDev('ov_net_cloud', '#a855f7');
+            pNet.innerHTML = '✅ Internet: Đã tải từ Cloud!';
+            setTimeout(() => pNet.remove(), 1600);
+        });
+    });
+}
+
+// HOẠT HỌA 2: LAN - TRUYỀN FILE NỘI BỘ
+function runLanFileShare() {
+    Sound.packet();
+    const pLayer = document.getElementById('packetLayer');
+    pLayer.innerHTML = '';
+
+    const p = document.createElement('div');
+    p.className = 'packet';
+    p.style.background = '#10b981';
+    p.innerHTML = '📁 Gửi Bài Giảng (1000 Mbps)';
+    pLayer.appendChild(p);
+
+    animateElement(p, { left: '18%', top: '295px' }, { left: '50%', top: '130px' }, 350, () => {
+        Sound.packet();
+        highlightDev('lan_sw', '#10b981');
+        animateElement(p, { left: '50%', top: '130px' }, { left: '38%', top: '295px' }, 350, () => {
+            Sound.ok();
+            highlightDev('lan_pc_hs1', '#34d399');
+            p.innerHTML = '✅ Học sinh 1 đã nhận file cực nhanh!';
+            setTimeout(() => p.remove(), 1500);
+        });
+    });
+}
+
+// HOẠT HỌA 2: LAN - IN TÀI LIỆU
+function runLanPrint() {
+    Sound.packet();
+    const pLayer = document.getElementById('packetLayer');
+    pLayer.innerHTML = '';
+
+    const p = document.createElement('div');
+    p.className = 'packet';
+    p.style.background = '#f59e0b';
+    p.innerHTML = '🖨️ Lệnh In Đề Cương';
+    pLayer.appendChild(p);
+
+    animateElement(p, { left: '18%', top: '295px' }, { left: '50%', top: '130px' }, 350, () => {
+        Sound.packet();
+        highlightDev('lan_sw', '#10b981');
+        animateElement(p, { left: '50%', top: '130px' }, { left: '82%', top: '295px' }, 350, () => {
+            Sound.ok();
+            highlightDev('lan_printer', '#f59e0b');
+            p.innerHTML = '🖨️ Máy in LAN đang in đề cương!';
+            setTimeout(() => p.remove(), 1500);
+        });
+    });
+}
+
+// HOẠT HỌA 3: WAN - TRUYỀN DỮ LIỆU
+function runWanTransfer() {
+    Sound.packet();
+    const pLayer = document.getElementById('packetLayer');
+    pLayer.innerHTML = '';
+
+    const p = document.createElement('div');
+    p.className = 'packet';
+    p.style.background = '#f59e0b';
+    p.innerHTML = isWanBroken ? '🛰️ Gói WAN (Qua Vệ Tinh)' : '🏢 Gửi Báo Cáo Xuyên Tỉnh';
+    pLayer.appendChild(p);
+
+    if (!isWanBroken) {
+        // Tuyến chính cáp quang viễn thông
+        animateElement(p, { left: '12%', top: '210px' }, { left: '28%', top: '210px' }, 300, () => {
+            Sound.packet();
+            highlightDev('wan_rtr1', '#f59e0b');
+            animateElement(p, { left: '28%', top: '210px' }, { left: '50%', top: '210px' }, 400, () => {
+                highlightDev('wan_isp_node', '#f59e0b');
+                animateElement(p, { left: '50%', top: '210px' }, { left: '72%', top: '210px' }, 400, () => {
+                    Sound.packet();
+                    highlightDev('wan_rtr2', '#f59e0b');
+                    animateElement(p, { left: '72%', top: '210px' }, { left: '88%', top: '210px' }, 300, () => {
+                        Sound.ok();
+                        highlightDev('wan_srv2', '#38bdf8');
+                        p.innerHTML = '✅ Sở GD&ĐT đã nhận báo cáo qua WAN!';
+                        setTimeout(() => p.remove(), 1500);
+                    });
+                });
+            });
+        });
+    } else {
+        // Tuyến dự phòng sóng vệ tinh
+        animateElement(p, { left: '12%', top: '210px' }, { left: '28%', top: '210px' }, 300, () => {
+            Sound.packet();
+            highlightDev('wan_rtr1', '#10b981');
+            animateElement(p, { left: '28%', top: '210px' }, { left: '50%', top: '105px' }, 500, () => {
+                Sound.packet();
+                animateElement(p, { left: '50%', top: '105px' }, { left: '72%', top: '210px' }, 500, () => {
+                    Sound.packet();
+                    highlightDev('wan_rtr2', '#10b981');
+                    animateElement(p, { left: '72%', top: '210px' }, { left: '88%', top: '210px' }, 300, () => {
+                        Sound.ok();
+                        highlightDev('wan_srv2', '#38bdf8');
+                        p.innerHTML = '✅ Tuyến vệ tinh dự phòng hoạt động xuất sắc!';
+                        setTimeout(() => p.remove(), 1600);
+                    });
+                });
+            });
+        });
+    }
+}
+
+function toggleWanCut() {
+    Sound.click();
+    isWanBroken = !isWanBroken;
+    if (isWanBroken) Sound.alert();
+    renderTabClassification_LanWan();
+}
+
+// HOẠT HỌA 4: INTERNET - TRUY CẬP WEB
+function runInternetWebAccess() {
+    Sound.packet();
+    const pLayer = document.getElementById('packetLayer');
+    pLayer.innerHTML = '';
+
+    const p = document.createElement('div');
+    p.className = 'packet';
+    p.style.background = '#38bdf8';
+    p.innerHTML = '🌐 Yêu Cầu Tải Trang Web';
+    pLayer.appendChild(p);
+
+    animateElement(p, { left: '14%', top: '210px' }, { left: '38%', top: '210px' }, 350, () => {
+        Sound.packet();
+        highlightDev('net_gw_isp', '#f59e0b');
+        animateElement(p, { left: '38%', top: '210px' }, { left: '62%', top: '210px' }, 450, () => {
+            Sound.packet();
+            highlightDev('net_cable_ocean', '#0284c7');
+            animateElement(p, { left: '62%', top: '210px' }, { left: '86%', top: '210px' }, 400, () => {
+                Sound.ding();
+                highlightDev('net_cloud_srv', '#a855f7');
+                p.innerHTML = '✅ Cloud Phản Hồi: Tải Web Thành Công!';
+                setTimeout(() => p.remove(), 1600);
+            });
+        });
+    });
+}
+
+// HOẠT HỌA 4: INTERNET - GỬI EMAIL
+function runInternetEmail() {
+    Sound.packet();
+    const pLayer = document.getElementById('packetLayer');
+    pLayer.innerHTML = '';
+
+    const p = document.createElement('div');
+    p.className = 'packet';
+    p.style.background = '#a855f7';
+    p.innerHTML = '📧 Gửi Thư Điện Tử Email';
+    pLayer.appendChild(p);
+
+    animateElement(p, { left: '14%', top: '210px' }, { left: '38%', top: '210px' }, 350, () => {
+        Sound.packet();
+        highlightDev('net_gw_isp', '#f59e0b');
+        animateElement(p, { left: '38%', top: '210px' }, { left: '62%', top: '210px' }, 450, () => {
+            Sound.packet();
+            highlightDev('net_cable_ocean', '#0284c7');
+            animateElement(p, { left: '62%', top: '210px' }, { left: '86%', top: '210px' }, 400, () => {
+                Sound.ok();
+                highlightDev('net_cloud_srv', '#a855f7');
+                p.innerHTML = '✅ Thư đã gửi đến Mail Server Quốc Tế!';
+                setTimeout(() => p.remove(), 1600);
+            });
+        });
+    });
+}
+
+
+        // =========================================================================
 
 // =========================================================================
 let tab1Mode = 'hub'; // 'hub', 'switch', 'hierarchy', 'school'
@@ -2936,7 +3646,7 @@ let tab1Traffic = false;
 
 function renderTab1_HubSwitch() {
     document.getElementById('stageTitle').innerHTML = `
-        <span>🔀 2. Thiết Bị Hub &amp; Switch &bull; Phân Biệt Cơ Chế Hoạt Động &amp; Mô Hình Mạng Trường Học</span>
+        <span>🔀 3. Thiết Bị Hub &amp; Switch &bull; Phân Biệt Cơ Chế Hoạt Động &amp; Mô Hình Mạng Trường Học</span>
     `;
 
     let controlsHtml = `
@@ -3607,7 +4317,7 @@ function getWanTowerSvg(size = 44) {
 
 function renderTab2_ModemRouterWan() {
     document.getElementById('stageTitle').innerHTML = `
-        <span>🌐 3. Thiết Bị Modem &amp; Router Wi-Fi &bull; Chuỗi WAN - LAN - Internet</span>
+        <span>📡 4. Thiết Bị Modem &amp; Router Wi-Fi &bull; Chuỗi WAN - LAN - Internet</span>
     `;
 
     let controlsHtml = `
@@ -5559,7 +6269,7 @@ Approximate round trip times in milli-seconds:
 // ==========================================
 function renderTab3_ConnectRj45Wifi() {
     document.getElementById('stageTitle').innerHTML = `
-        <span>🔌 4. Thực Hành Kết Nối Có Dây (Giắc RJ45 &amp; Switch) &bull; Kết Nối Wi-Fi Windows 11</span>
+        <span>🔌 5. Thực Hành Kết Nối Có Dây (Giắc RJ45 &amp; Switch) &bull; Kết Nối Wi-Fi Windows 11</span>
     `;
 
     let controlsHtml = `
@@ -6413,7 +7123,7 @@ const BIT_WEIGHTS = [128, 64, 32, 16, 8, 4, 2, 1];
 
 function renderTab4_RoutingTable41() {
     document.getElementById('stageTitle').innerHTML = `
-        <span>🗺️ 5. Giao Thức Mạng, Giao Thức IP (IPv4 &amp; IPv6) &amp; Bảng Định Tuyến</span>
+        <span>🗺️ 6. Giao Thức Mạng, Giao Thức IP (IPv4 &amp; IPv6) &amp; Bảng Định Tuyến</span>
     `;
 
     let controlsHtml = `
@@ -7051,7 +7761,7 @@ const TCP_PORTS = {
 
 function renderTab5_TcpSegmentation() {
     document.getElementById('stageTitle').innerHTML = `
-        <span>📦 6. Giao Thức TCP &bull; Cổng Dịch Vụ, Bắt Tay 3 Bước, Tái Hợp &amp; Xử Lý Lỗi</span>
+        <span>📦 7. Giao Thức TCP &bull; Cổng Dịch Vụ, Bắt Tay 3 Bước, Tái Hợp &amp; Xử Lý Lỗi</span>
     `;
 
     document.getElementById('stageControls').innerHTML = `
@@ -7540,7 +8250,7 @@ const DNS_DATABASE = {
 
 function renderTab6_ApplicationProtocols() {
     document.getElementById('stageTitle').innerHTML = `
-        <span>🌍 7. Các Giao Thức Dịch Vụ ỨNG DỤNG (DNS, HTTP/S, FTP, Mail SMTP/IMAP &amp; Lệnh Ping)</span>
+        <span>🌍 8. Các Giao Thức Dịch Vụ ỨNG DỤNG (DNS, HTTP/S, FTP, Mail SMTP/IMAP &amp; Lệnh Ping)</span>
     `;
 
     let controlsHtml = `
@@ -8469,7 +9179,7 @@ function renderTab7_Quiz() {
     stageTitle.innerHTML = `
         <span style="display:flex; align-items:center; gap:8px;">
             <span style="font-size:1.3rem;">📝</span>
-            <span style="color:#38bdf8;">CÂU HỎI TRẮC NGHIỆM CHỐT KIẾN THỨC</span>
+            <span style="color:#38bdf8;">9. CÂU HỎI TRẮC NGHIỆM CHỐT KIẾN THỨC</span>
             <span style="background:rgba(56,189,248,0.2); color:#38bdf8; font-size:0.75rem; padding:2px 8px; border-radius:4px; font-weight:bold; border:1px solid #0284c7;">
                 ${quizLesson === 'b3' ? 'BÀI 3: MỘT SỐ THIẾT BỊ MẠNG THÔNG DỤNG' : 'BÀI 4: GIAO THỨC MẠNG'}
             </span>
@@ -9047,6 +9757,11 @@ function updateQuizSidebar() {
             setTimeout(() => el.remove(), 1800);
         }
     </script>
+
+    <!-- FOOTER BẢN QUYỀN -->
+    <footer class="app-footer">
+        Giáo viên: Đỗ Thị Thanh Thủy &bull; Đơn vị: Trường THPT Phan Chu Trinh - Cư Jút
+    </footer>
 
     <!-- MODAL THÔNG BÁO GIỮA MÀN HÌNH CHỮ TO DÀNH CHO MÁY CHIẾU LỚP HỌC -->
     <div id="centerAlertOverlay" class="center-alert-overlay" onclick="closeCenterAlert()">
