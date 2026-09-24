@@ -816,6 +816,10 @@
         button, .btn, .tab-btn {
             font-family: "Times New Roman", Times, serif !important;
         }
+        .btn-device-gallery {
+            bottom: 10px !important;
+            right: 18px !important;
+        }
         svg text {
             font-family: "Times New Roman", Times, serif !important;
         }
@@ -1438,7 +1442,7 @@ const DeviceArt = {
                 <path d="M22 11 H4 M8 8 L4 11 L8 14" stroke="#34d399" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </g>
             
-            <text x="10" y="38" fill="#38bdf8" font-size="7" font-family="monospace" font-weight="bold">SWITCH L2</text>
+            <text x="10" y="38" fill="#38bdf8" font-size="7" font-family="monospace" font-weight="bold">SWITCH</text>
             <text x="10" y="46" fill="#94a3b8" font-size="6" font-family="monospace">1000 Mbps</text>
             
             <!-- 8x Ports -->
@@ -2247,7 +2251,7 @@ let currentTab = 0;
             else if (tabId === 2) renderTab1_HubSwitch();
             else if (tabId === 3) renderTab2_ModemRouterWan();
             else if (tabId === 4) {
-                tab3SubMode = 'types';
+                tab3SubMode = 'plug_lab';
                 renderTab3_ConnectRj45Wifi();
             }
             else if (tabId === 5) {
@@ -4060,7 +4064,7 @@ function drawTab1Stage() {
         cDev.style.padding = '0';
         cDev.innerHTML = `
             <div class="dev-name" style="color:${isHub?'#ef4444':'#10b981'}; font-size:1.35rem; font-weight:900; margin-bottom:10px; letter-spacing:0.5px;">
-                ${isHub ? 'BỘ CHIA HUB (TẦNG 1)' : 'BỘ CHUYỂN MẠCH SWITCH (TẦNG 2)'}
+                ${isHub ? 'BỘ CHIA HUB' : 'BỘ CHUYỂN MẠCH SWITCH'}
             </div>
             <div class="dev-icon">${isHub ? DeviceArt.hub({ width: 318, height: 128, collision: tab1Traffic && isHub }) : DeviceArt.switch({ width: 318, height: 128 })}</div>
             <div style="display:flex; gap:5px; margin-top:8px; justify-content:center;">
@@ -5459,15 +5463,30 @@ function getWifiIconSvg(bars = 4, color = '#ffffff', size = 20) {
 // cùng giao diện kết nối Wi-Fi Windows 11 chuẩn xác 100% chuẩn giao diện Windows 11.
 // =========================================================================
 
-var tab3SubMode = 'types'; // Mặc định chọn ngay thực hành cắm cáp
+var tab3SubMode = 'plug_lab'; // Mặc định mở ngay phòng thực hành cắm cáp & máy đo
 var selectedRealDev = 'laptop';
 var t568Standard = 'T568B';
 var rj45Plugged = false;
 var selectedSwitchPort = 1;
 var wifiConnected = false;
-var testerRunning = false;
-var testerLedState = [false, false, false, false, false, false, false, false];
 var cmdOutput = '';
+
+// Biến điều khiển Máy Đo Cáp Mạng 8 Đèn LED
+var cableTesterScenario = 'perfect'; // 'perfect', 'broken_wire', 'crossed_wire', 'broken_78'
+var cableTesterTimer = null;
+var cableTesterRunning = false;
+var cableTesterSpeed = 280;
+
+const TESTER_PINS = [
+    { pin: 1, name: 'Trắng Cam', hex: '#ea580c', bg: 'linear-gradient(135deg, #ea580c 50%, #ffffff 50%)', role: 'TX+ (Truyền)' },
+    { pin: 2, name: 'Cam', hex: '#ea580c', bg: '#ea580c', role: 'TX- (Truyền)' },
+    { pin: 3, name: 'Trắng Xanh Lá', hex: '#16a34a', bg: 'linear-gradient(135deg, #16a34a 50%, #ffffff 50%)', role: 'RX+ (Nhận)' },
+    { pin: 4, name: 'Xanh Dương', hex: '#2563eb', bg: '#2563eb', role: 'Phụ / PoE' },
+    { pin: 5, name: 'Trắng Xanh Dương', hex: '#2563eb', bg: 'linear-gradient(135deg, #2563eb 50%, #ffffff 50%)', role: 'Phụ / PoE' },
+    { pin: 6, name: 'Xanh Lá', hex: '#16a34a', bg: '#16a34a', role: 'RX- (Nhận)' },
+    { pin: 7, name: 'Trắng Nâu', hex: '#92400e', bg: 'linear-gradient(135deg, #92400e 50%, #ffffff 50%)', role: 'Gigabit 1000M' },
+    { pin: 8, name: 'Nâu', hex: '#92400e', bg: '#92400e', role: 'Gigabit 1000M' }
+];
 
 // Các biến mới mở rộng cho Switch và Wi-Fi Windows 11
 var switchPlugged = false;
@@ -5646,53 +5665,721 @@ function toggleWifiPropertiesModal() {
     renderTab3_ConnectRj45Wifi();
 }
 
-// Máy test cáp mạng 8 đèn
-function runCableTester() {
-    if (testerRunning) return;
-    testerRunning = true;
-    Sound.tone(600, 0.08, 'sine');
-    var testerLedState = [false, false, false, false, false, false, false, false];
-    renderTab3_ConnectRj45Wifi();
+// =========================================================================
+// MÔ PHỎNG MÁY ĐO THÔNG MẠNG CÁP RJ-45 (NETWORK CABLE TESTER 8 ĐÈN LED)
+// =========================================================================
 
-    let idx = 0;
-    const timer = setInterval(() => {
-        if (idx < 8) {
-            Sound.tone(700 + idx * 50, 0.06, 'sine');
-            var testerLedState = [false, false, false, false, false, false, false, false];
-            testerLedState[idx] = true;
-            idx++;
-            drawTab3Stage();
-        } else {
-            clearInterval(timer);
-            var testerRunning = false;
-            testerLedState = [true, true, true, true, true, true, true, true];
-            Sound.success();
-            drawTab3Stage();
-        }
+function getCableTesterHtml(isModal) {
+    return `
+        <div style="${isModal ? 'background:#0d1527; border:3px solid #f59e0b; border-radius:14px; max-width:96vw; width:96vw; max-height:94vh; overflow-y:auto; padding:16px 24px; box-shadow:0 0 50px rgba(245,158,11,0.35), 0 25px 60px rgba(0,0,0,0.9); display:flex; flex-direction:column; gap:10px; position:relative;' : 'padding:8px 18px 20px 18px; width:100%; max-width:100%; margin:0 auto; overflow-y:auto; display:flex; flex-direction:column; gap:10px; box-sizing:border-box;'}">
+            
+            <!-- HEADER CHUNG -->
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #1e293b; padding-bottom:6px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:1.7rem; line-height:1;">📟</span>
+                    <div>
+                        <div style="font-size:1.22rem; font-weight:900; color:#fbbf24; letter-spacing:0.5px;">
+                            MÁY ĐO THÔNG MẠNG CÁP RJ-45 (8 ĐÈN LED TUẦN TỰ)
+                        </div>
+                        <div style="font-size:0.82rem; color:#94a3b8;">
+                            Kiểm tra tín hiệu xung điện trên 8 lõi dây sau khi bấm giắc RJ-45 theo chuẩn quốc tế T568B
+                        </div>
+                    </div>
+                </div>
+                ${isModal ? `
+                    <button class="btn btn-outline" style="padding:5px 14px; font-size:0.88rem; font-weight:900; color:#cbd5e1; border-color:#475569;" onclick="closeCableTesterModal()">
+                        ✖ Đóng [Esc]
+                    </button>
+                ` : `
+                    <button class="btn btn-amber" style="padding:5px 14px; font-size:0.85rem; font-weight:900;" onclick="openCableTesterModal()">
+                        🗖 Cửa Sổ Phóng To (Modal)
+                    </button>
+                `}
+            </div>
+
+            <!-- KHUNG CHIA 2 CỘT: BÊN TRÁI MÔ PHỎNG (TO HƠN) - BÊN PHẢI CỬA SỔ RIÊNG TRẠNG THÁI & CHẨN ĐOÁN -->
+            <div style="display:grid; grid-template-columns:1.45fr 1fr; gap:18px; align-items:start; width:100%;">
+                
+                <!-- CỘT 1 (BÊN TRÁI): MÔ PHỎNG MÁY ĐO & ĐIỀU KHIỂN (LỚN HƠN) -->
+                <div style="background:#090e1a; border:2px solid #334155; border-radius:12px; padding:12px 16px; display:flex; flex-direction:column; gap:10px;">
+                    
+                    <!-- HÀNG CHỌN KỊCH BẢN THỬ NGHIỆM -->
+                    <div style="background:#020617; border:1px solid #1e293b; border-radius:8px; padding:8px 12px; display:flex; flex-direction:column; gap:5px;">
+                        <span style="font-size:0.82rem; font-weight:900; color:#38bdf8;">CHỌN TÌNH TRẠNG SỢI CÁP ĐỂ MÁY ĐO KIỂM TRA:</span>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                            <button class="btnSc_perfect btn ${cableTesterScenario==='perfect'?'btn-green':'btn-outline'}" style="font-size:0.84rem; padding:6px 12px; font-weight:bold;" onclick="selectTesterScenario('perfect')">
+                                🟢 1. Cáp Chuẩn T568B (8/8 Thông Suốt)
+                            </button>
+                            <button class="btnSc_broken btn ${cableTesterScenario==='broken_wire'?'btn-red':'btn-outline'}" style="font-size:0.84rem; padding:6px 12px; font-weight:bold;" onclick="selectTesterScenario('broken_wire')">
+                                🔴 2. Đứt Dây 3 &amp; 6 (Mất Mạng)
+                            </button>
+                            <button class="btnSc_crossed btn ${cableTesterScenario==='crossed_wire'?'btn-amber':'btn-outline'}" style="font-size:0.84rem; padding:6px 12px; font-weight:bold;" onclick="selectTesterScenario('crossed_wire')">
+                                🔀 3. Bấm Nhầm Chéo 1 ↔ 3
+                            </button>
+                            <button class="btnSc_broken78 btn ${cableTesterScenario==='broken_78'?'btn-purple':'btn-outline'}" style="font-size:0.84rem; padding:6px 12px; font-weight:bold;" onclick="selectTesterScenario('broken_78')">
+                                ⚠️ 4. Đứt Cặp 7 &amp; 8 (100 Mbps)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- MÔ PHỎNG ĐỒ HỌA 2 BỘ MASTER & REMOTE (TĂNG 20% KÍCH THƯỚC) -->
+                    <div style="background:radial-gradient(ellipse at center, #1e293b 0%, #060911 100%); border:2px solid #334155; border-radius:12px; padding:14px 18px; position:relative; box-shadow:inset 0 0 30px rgba(0,0,0,0.85); display:flex; flex-direction:column; justify-content:center;">
+                        
+                        <!-- DÂY CÁP VÒM UTP CAT6 TRÊN ĐỈNH -->
+                        <div style="display:flex; justify-content:center; align-items:center; position:relative; height:30px; margin-bottom:4px;">
+                            <svg width="580" height="30" viewBox="0 0 580 30" style="overflow:visible;">
+                                <path d="M 135 28 Q 290 2 445 28" fill="none" stroke="#2563eb" stroke-width="9" stroke-linecap="round"/>
+                                <path d="M 135 28 Q 290 2 445 28" fill="none" stroke="#93c5fd" stroke-width="3" stroke-dasharray="6 6"/>
+                                <rect x="225" y="4" width="130" height="18" rx="4" fill="#0f172a" stroke="#38bdf8" stroke-width="1.4"/>
+                                <text x="290" y="17" fill="#38bdf8" font-size="10.5" font-weight="900" text-anchor="middle">CÁP UTP CAT6 (8 LÕI)</text>
+                            </svg>
+                        </div>
+
+                        <!-- 2 HỘP MÁY ĐO MASTER & REMOTE CÙNG LUỒNG DÂY (RỘNG 255px MỖI BỘ) -->
+                        <div style="display:flex; justify-content:center; gap:18px; align-items:stretch;">
+                            
+                            <!-- BỘ PHÁT: MASTER UNIT (255px) -->
+                            <div style="width:255px; background:linear-gradient(180deg, #1e293b 0%, #0f172a 100%); border:2.2px solid #64748b; border-radius:10px; padding:10px 14px; box-shadow:0 8px 24px rgba(0,0,0,0.75); display:flex; flex-direction:column; justify-content:space-between; position:relative;">
+                                <div style="position:absolute; top:-14px; left:50%; transform:translateX(-50%); width:76px; height:18px; background:#020617; border:1.8px solid #38bdf8; border-radius:4px 4px 0 0; display:flex; justify-content:center; align-items:center;">
+                                    <span style="font-size:0.65rem; color:#facc15; font-weight:900;">RJ-45 IN</span>
+                                </div>
+
+                                <div>
+                                    <div style="text-align:center; border-bottom:1px solid #334155; padding-bottom:5px; margin-bottom:5px;">
+                                        <div style="font-size:0.98rem; font-weight:900; color:#38bdf8; letter-spacing:0.5px;">CABLE TESTER</div>
+                                        <div style="font-size:0.72rem; font-weight:bold; color:#94a3b8;">MASTER UNIT (BỘ PHÁT)</div>
+                                        <div style="display:flex; justify-content:center; align-items:center; gap:5px; margin-top:2px;">
+                                            <div style="width:7.5px; height:7.5px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px #22c55e;"></div>
+                                            <span style="font-size:0.7rem; color:#4ade80; font-weight:bold;">POWER ON</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 8 ĐÈN MASTER (LED 14px, CHỮ RÕ TO) -->
+                                    <div style="display:flex; flex-direction:column; gap:2px;">
+                                        ${TESTER_PINS.map((p, i) => `
+                                            <div class="row_m_${i}" style="display:flex; justify-content:space-between; align-items:center; padding:2px 8px; border-radius:4px; transition:all 0.15s ease;">
+                                                <span style="font-size:0.88rem; font-weight:900; color:#cbd5e1; width:18px;">${p.pin}</span>
+                                                <div class="led_m_${i}" style="width:14px; height:14px; border-radius:50%; background:#1e293b; border:1.5px solid #475569; transition:all 0.15s ease;"></div>
+                                                <span style="font-size:0.78rem; color:#94a3b8; font-weight:bold; width:110px; text-align:right;">${p.name}</span>
+                                            </div>
+                                        `).join('')}
+                                        <div style="display:flex; justify-content:space-between; align-items:center; padding:2px 8px;">
+                                            <span style="font-size:0.88rem; font-weight:900; color:#64748b; width:18px;">G</span>
+                                            <div style="width:14px; height:14px; border-radius:50%; background:#1e293b; border:1.5px solid #334155;"></div>
+                                            <span style="font-size:0.78rem; color:#64748b; width:110px; text-align:right;">Ground (Tiếp địa)</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- CÔNG TẮC GẠT (KÍCH THƯỚC LỚN HƠN) -->
+                                <div style="margin-top:8px; padding-top:6px; border-top:1px solid #334155; display:flex; justify-content:center; align-items:center; gap:8px;">
+                                    <span style="font-size:0.7rem; color:#94a3b8; font-weight:bold;">OFF</span>
+                                    <div style="width:44px; height:20px; background:#0284c7; border-radius:10px; position:relative; border:1.5px solid #38bdf8;">
+                                        <div class="switchKnob" style="width:14px; height:14px; border-radius:50%; background:#fff; position:absolute; top:2px; left:4px; transition:all 0.2s ease;"></div>
+                                    </div>
+                                    <span style="font-size:0.7rem; color:#4ade80; font-weight:bold;">ON</span>
+                                    <span style="font-size:0.7rem; color:#94a3b8; font-weight:bold;">S</span>
+                                </div>
+                            </div>
+
+                            <!-- LUỒNG TÍN HIỆU 8 SỢI Ở GIỮA (170px) -->
+                            <div style="width:170px; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:4px;">
+                                <div style="font-size:0.82rem; font-weight:900; color:#38bdf8; text-align:center; letter-spacing:0.5px;">
+                                    LUỒNG TÍN HIỆU
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:4px; width:100%;">
+                                    ${TESTER_PINS.map((p, i) => `
+                                        <div style="display:flex; align-items:center; gap:4px;">
+                                            <div class="wire_bar_${i}" style="flex:1; height:5px; background:${p.bg}; border-radius:2.5px; opacity:0.4; transition:all 0.15s ease;"></div>
+                                            <span class="wire_arrow_${i}" style="font-size:0.85rem; color:#38bdf8; opacity:0; line-height:1;">➔</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <div style="font-size:0.72rem; color:#94a3b8; text-align:center; margin-top:3px;">
+                                    Chuẩn: <b style="color:#e2e8f0;">T568B</b>
+                                </div>
+                            </div>
+
+                            <!-- BỘ THU: REMOTE UNIT (255px) -->
+                            <div style="width:255px; background:linear-gradient(180deg, #1e293b 0%, #0f172a 100%); border:2.2px solid #64748b; border-radius:10px; padding:10px 14px; box-shadow:0 8px 24px rgba(0,0,0,0.75); display:flex; flex-direction:column; justify-content:space-between; position:relative;">
+                                <div style="position:absolute; top:-14px; left:50%; transform:translateX(-50%); width:76px; height:18px; background:#020617; border:1.8px solid #38bdf8; border-radius:4px 4px 0 0; display:flex; justify-content:center; align-items:center;">
+                                    <span style="font-size:0.65rem; color:#facc15; font-weight:900;">RJ-45 IN</span>
+                                </div>
+
+                                <div>
+                                    <div style="text-align:center; border-bottom:1px solid #334155; padding-bottom:5px; margin-bottom:5px;">
+                                        <div style="font-size:0.98rem; font-weight:900; color:#38bdf8; letter-spacing:0.5px;">CABLE TESTER</div>
+                                        <div style="font-size:0.72rem; font-weight:bold; color:#94a3b8;">REMOTE UNIT (BỘ THU)</div>
+                                        <div style="margin-top:2px; font-size:0.68rem; color:#94a3b8; font-weight:bold;">ĐẦU THU ĐỐI ỨNG</div>
+                                    </div>
+
+                                    <!-- 8 ĐÈN REMOTE (LED 14px) -->
+                                    <div style="display:flex; flex-direction:column; gap:2px;">
+                                        ${TESTER_PINS.map((p, i) => `
+                                            <div class="row_r_${i}" style="display:flex; justify-content:space-between; align-items:center; padding:2px 8px; border-radius:4px; transition:all 0.15s ease;">
+                                                <span style="font-size:0.78rem; color:#94a3b8; font-weight:bold; width:110px;">${p.name}</span>
+                                                <div style="display:flex; align-items:center; gap:4px;">
+                                                    <span class="badge_r_${i}" style="font-size:0.65rem; font-weight:900; display:none; padding:1px 5px; border-radius:3px;"></span>
+                                                    <div class="led_r_${i}" style="width:14px; height:14px; border-radius:50%; background:#1e293b; border:1.5px solid #475569; transition:all 0.15s ease;"></div>
+                                                </div>
+                                                <span style="font-size:0.88rem; font-weight:900; color:#cbd5e1; width:18px; text-align:right;">${p.pin}</span>
+                                            </div>
+                                        `).join('')}
+                                        <div style="display:flex; justify-content:space-between; align-items:center; padding:2px 8px;">
+                                            <span style="font-size:0.78rem; color:#64748b; width:110px;">Ground</span>
+                                            <div style="width:14px; height:14px; border-radius:50%; background:#1e293b; border:1.5px solid #334155;"></div>
+                                            <span style="font-size:0.88rem; font-weight:900; color:#64748b; width:18px; text-align:right;">G</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="margin-top:8px; padding-top:6px; border-top:1px solid #334155; text-align:center;">
+                                    <span style="font-size:0.7rem; color:#94a3b8; font-weight:bold;">HÃNG: NETWORK CABLE TESTER</span>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- THANH ĐIỀU KHIỂN DƯỚI CỘT TRÁI (LỚN HƠN, RÕ NÉT) -->
+                    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding-top:3px;">
+                        <button class="btnStartScan btn btn-blue" style="padding:7px 18px; font-size:0.88rem; font-weight:900;" onclick="startCableTesterScan()">
+                            ⚡ BẮT ĐẦU ĐO
+                        </button>
+                        <button class="btn btn-outline" style="padding:7px 14px; font-size:0.84rem; font-weight:bold;" onclick="resetCableTesterLeds()">
+                            🔄 Đặt Lại
+                        </button>
+                        <button class="btnTesterSpeed btn btn-outline" style="padding:7px 14px; font-size:0.84rem; font-weight:bold;" onclick="toggleTesterSpeed()">
+                            ⏱️ 280ms
+                        </button>
+                        ${isModal ? `
+                            <button class="btn btn-outline" style="padding:7px 14px; font-size:0.84rem; font-weight:bold;" onclick="closeCableTesterModal(); setTab3SubMode('tester_lab');">
+                                📟 Mở Tab Riêng
+                            </button>
+                            <button class="btn btn-green" style="padding:7px 18px; font-size:0.88rem; font-weight:900;" onclick="closeCableTesterModal()">
+                                ✓ HOÀN THÀNH
+                            </button>
+                        ` : `
+                            <button class="btn btn-green" style="padding:7px 18px; font-size:0.88rem; font-weight:bold; margin-left:auto;" onclick="setTab3SubMode('plug_lab')">
+                                🔌 Sang Cắm Cáp RJ45 →
+                            </button>
+                        `}
+                    </div>
+
+                </div>
+
+                <!-- CỘT 2 (BÊN PHẢI): CỬA SỔ RIÊNG BẢNG TRẠNG THÁI & CHẨN ĐOÁN KỸ THUẬT -->
+                <div style="background:#090e1a; border:2px solid #38bdf8; border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; box-shadow:0 6px 20px rgba(0,0,0,0.6);">
+                    
+                    <!-- HEADER CỦA CỬA SỔ PHẢI -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #1e293b; padding-bottom:7px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:1.25rem;">📊</span>
+                            <span style="font-size:1.02rem; font-weight:900; color:#38bdf8; letter-spacing:0.5px;">BẢNG TRẠNG THÁI &amp; CHẨN ĐOÁN</span>
+                        </div>
+                        <span class="testerLiveBadge" style="background:#0284c7; color:#fff; font-size:0.82rem; font-weight:900; padding:3px 12px; border-radius:5px;">
+                            SẴN SÀNG
+                        </span>
+                    </div>
+
+                    <!-- TIẾN TRÌNH QUÉT XUNG ĐIỆN THEO THỜI GIAN THỰC -->
+                    <div style="background:#020617; border:1px solid #1e293b; border-radius:8px; padding:8px 12px;">
+                        <div style="font-size:0.84rem; font-weight:900; color:#38bdf8;">⚡ TIẾN TRÌNH XUNG ĐIỆN THỜI GIAN THỰC:</div>
+                        <div class="testerLiveStepText" style="font-size:0.88rem; color:#cbd5e1; margin-top:3px; min-height:20px;">
+                            Máy đã kết nối 2 đầu giắc. Bấm nút <b>"⚡ Bắt Đầu Đo"</b> để kiểm tra thông mạch 8 sợi dây.
+                        </div>
+                    </div>
+
+                    <!-- BẢNG MA TRẬN 8 CHÂN DÂY THEO DÕI ĐỐI ỨNG (2 CỘT RỘNG RÃI) -->
+                    <div style="background:#020617; border:1px solid #1e293b; border-radius:8px; padding:8px 10px;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <!-- Cột 1: Chân 1 - 4 -->
+                            <div>
+                                ${TESTER_PINS.slice(0, 4).map((p, i) => `
+                                    <div style="display:grid; grid-template-columns:24px 1fr 84px; gap:4px; align-items:center; font-size:0.82rem; padding:3px 0; border-bottom:1px dashed #1e293b;">
+                                        <span style="font-weight:900; color:#cbd5e1;">#${p.pin}</span>
+                                        <span style="color:#e2e8f0; display:flex; align-items:center; gap:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                            <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${p.bg}; border:1px solid #475569; flex-shrink:0;"></span>
+                                            ${p.name}
+                                        </span>
+                                        <span class="pin_stat_${i}" style="text-align:center; font-weight:900; font-size:0.74rem; display:inline-flex; justify-content:center; align-items:center; white-space:nowrap;">
+                                            <span style="color:#64748b; font-weight:bold; white-space:nowrap;">Chờ</span>
+                                        </span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <!-- Cột 2: Chân 5 - 8 -->
+                            <div>
+                                ${TESTER_PINS.slice(4, 8).map((p, idx) => {
+                                    const i = idx + 4;
+                                    return `
+                                    <div style="display:grid; grid-template-columns:24px 1fr 84px; gap:4px; align-items:center; font-size:0.82rem; padding:3px 0; border-bottom:1px dashed #1e293b;">
+                                        <span style="font-weight:900; color:#cbd5e1;">#${p.pin}</span>
+                                        <span style="color:#e2e8f0; display:flex; align-items:center; gap:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                            <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${p.bg}; border:1px solid #475569; flex-shrink:0;"></span>
+                                            ${p.name}
+                                        </span>
+                                        <span class="pin_stat_${i}" style="text-align:center; font-weight:900; font-size:0.74rem; display:inline-flex; justify-content:center; align-items:center; white-space:nowrap;">
+                                            <span style="color:#64748b; font-weight:bold; white-space:nowrap;">Chờ</span>
+                                        </span>
+                                    </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KHỐI KẾT QUẢ VÀ KẾT LUẬN CHẨN ĐOÁN KỸ THUẬT (CỐ ĐỊNH Ở PHẢI, LỚN RÕ) -->
+                    <div class="testerDiagnosisBox" style="background:#090e1a; border:2px solid #38bdf8; border-radius:10px; padding:12px 16px; min-height:140px; display:flex; flex-direction:column; gap:6px; box-shadow:0 4px 15px rgba(0,0,0,0.5);">
+                        <div style="color:#38bdf8; font-weight:900; font-size:1.05rem;">💡 TRẠNG THÁI MÁY ĐO: SẴN SÀNG</div>
+                        <div style="color:#cbd5e1; font-size:0.88rem; line-height:1.55; margin-top:4px;">
+                            Chọn tình trạng sợi cáp ở cột bên trái và bấm <b>"⚡ Bắt Đầu Đo"</b>. Kết quả chẩn đoán kỹ thuật chi tiết sẽ hiển thị đầy đủ tại đây!
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    `;
+}
+
+function runCableTester() {
+    Sound.click();
+    setTab3SubMode('tester_lab');
+    setTimeout(() => {
+        startCableTesterScan();
     }, 200);
+}
+
+function openCableTesterModal() {
+    Sound.click();
+    if (document.getElementById('cableTesterOverlay')) {
+        document.getElementById('cableTesterOverlay').remove();
+    }
+    stopCableTesterTimer();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'cableTesterOverlay';
+    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.85); backdrop-filter:blur(8px); z-index:99999; display:flex; justify-content:center; align-items:center; padding:15px; animation:fadeInOverlay 0.2s ease;';
+
+    overlay.innerHTML = getCableTesterHtml(true);
+    document.body.appendChild(overlay);
+
+    setTimeout(() => {
+        startCableTesterScan();
+    }, 350);
+}
+
+function closeCableTesterModal() {
+    Sound.click();
+    stopCableTesterTimer();
+    const overlay = document.getElementById('cableTesterOverlay');
+    if (overlay) overlay.remove();
+}
+
+function stopCableTesterTimer() {
+    if (cableTesterTimer) {
+        clearInterval(cableTesterTimer);
+        cableTesterTimer = null;
+    }
+    cableTesterRunning = false;
+}
+
+function toggleTesterSpeed() {
+    Sound.click();
+    cableTesterSpeed = cableTesterSpeed === 280 ? 140 : 280;
+    const txt = cableTesterSpeed === 280 ? '⏱️ Tốc độ: Bình Thường (280ms)' : '⏱️ Tốc độ: Nhanh (140ms)';
+    document.querySelectorAll('.btnTesterSpeed').forEach(btn => {
+        btn.textContent = txt;
+    });
+}
+
+function selectTesterScenario(sc) {
+    Sound.click();
+    cableTesterScenario = sc;
+    stopCableTesterTimer();
+
+    ['perfect', 'broken_wire', 'crossed_wire', 'broken_78'].forEach(s => {
+        const cls = 'btnSc_' + (s==='broken_wire'?'broken':s==='crossed_wire'?'crossed':s==='broken_78'?'broken78':'perfect');
+        document.querySelectorAll('.' + cls).forEach(btn => {
+            btn.className = `${cls} btn ${s === sc ? (s==='perfect'?'btn-green':s==='broken_wire'?'btn-red':s==='crossed_wire'?'btn-amber':'btn-purple') : 'btn-outline'}`;
+        });
+    });
+
+    resetCableTesterLeds();
+    setTimeout(() => {
+        startCableTesterScan();
+    }, 200);
+}
+
+function resetCableTesterLeds() {
+    stopCableTesterTimer();
+    for (let i = 0; i < 8; i++) {
+        document.querySelectorAll('.led_m_' + i).forEach(el => { el.style.background = '#1e293b'; el.style.boxShadow = 'none'; });
+        document.querySelectorAll('.led_r_' + i).forEach(el => { el.style.background = '#1e293b'; el.style.boxShadow = 'none'; });
+        document.querySelectorAll('.row_m_' + i).forEach(el => { el.style.background = 'transparent'; });
+        document.querySelectorAll('.row_r_' + i).forEach(el => { el.style.background = 'transparent'; });
+        document.querySelectorAll('.wire_bar_' + i).forEach(el => { el.style.opacity = '0.4'; el.style.boxShadow = 'none'; });
+        document.querySelectorAll('.wire_arrow_' + i).forEach(el => { el.style.opacity = '0'; });
+        document.querySelectorAll('.badge_r_' + i).forEach(el => { el.style.display = 'none'; });
+        document.querySelectorAll('.pin_stat_' + i).forEach(el => {
+            el.innerHTML = '<span style="color:#64748b; font-weight:bold; white-space:nowrap;">Chờ</span>';
+        });
+    }
+
+    document.querySelectorAll('.testerLiveBadge').forEach(badge => {
+        badge.style.background = '#0284c7';
+        badge.textContent = 'SẴN SÀNG';
+    });
+
+    document.querySelectorAll('.testerLiveStepText').forEach(el => {
+        el.innerHTML = 'Máy đã kết nối 2 đầu giắc. Bấm nút <b>"⚡ Bắt Đầu Đo"</b> để kiểm tra thông mạch 8 sợi dây.';
+    });
+
+    document.querySelectorAll('.testerDiagnosisBox').forEach(box => {
+        box.style.border = '2px solid #38bdf8';
+        box.style.background = '#090e1a';
+        box.innerHTML = `
+            <div style="color:#38bdf8; font-weight:900; font-size:1.05rem;">💡 TRẠNG THÁI MÁY ĐO: SẴN SÀNG</div>
+            <div style="color:#cbd5e1; font-size:0.88rem; line-height:1.55; margin-top:4px;">
+                Chọn tình trạng sợi cáp ở cột bên trái và bấm <b>"⚡ Bắt Đầu Đo"</b>. Kết quả chẩn đoán kỹ thuật chi tiết sẽ hiển thị đầy đủ tại đây!
+            </div>
+        `;
+    });
+
+    document.querySelectorAll('.btnStartScan').forEach(btn => {
+        btn.textContent = '⚡ BẮT ĐẦU ĐO';
+    });
+    document.querySelectorAll('.switchKnob').forEach(knob => {
+        knob.style.left = '4px';
+    });
+}
+
+function startCableTesterScan() {
+    if (cableTesterRunning) return;
+    stopCableTesterTimer();
+    cableTesterRunning = true;
+    resetCableTesterLeds();
+
+    document.querySelectorAll('.switchKnob').forEach(knob => { knob.style.left = '25px'; });
+    document.querySelectorAll('.btnStartScan').forEach(btn => { btn.textContent = '⚡ ĐANG QUÉT ĐÈN...'; });
+    document.querySelectorAll('.testerLiveBadge').forEach(badge => {
+        badge.style.background = '#f59e0b';
+        badge.textContent = '⚡ ĐANG QUÉT';
+    });
+
+    Sound.tone(520, 0.08, 'sine');
+
+    let step = 0;
+    cableTesterTimer = setInterval(() => {
+        if (step < 8) {
+            // Tắt đèn của bước trước đó
+            if (step > 0) {
+                const prev = step - 1;
+                document.querySelectorAll('.led_m_' + prev).forEach(el => { el.style.background = '#1e293b'; el.style.boxShadow = 'none'; });
+                document.querySelectorAll('.led_r_' + prev).forEach(el => { el.style.background = '#1e293b'; el.style.boxShadow = 'none'; });
+                document.querySelectorAll('.row_m_' + prev).forEach(el => { el.style.background = 'transparent'; });
+                document.querySelectorAll('.row_r_' + prev).forEach(el => { el.style.background = 'transparent'; });
+                document.querySelectorAll('.wire_bar_' + prev).forEach(el => { el.style.opacity = '0.4'; el.style.boxShadow = 'none'; });
+                document.querySelectorAll('.wire_arrow_' + prev).forEach(el => { el.style.opacity = '0'; });
+            }
+
+            // BẬT ĐÈN BƯỚC HIỆN TẠI BÊN MASTER (LED 14px tỏa sáng mạnh mẽ)
+            document.querySelectorAll('.led_m_' + step).forEach(el => {
+                el.style.background = '#22c55e';
+                el.style.boxShadow = '0 0 14px #22c55e, 0 0 24px #22c55e';
+            });
+            document.querySelectorAll('.row_m_' + step).forEach(el => {
+                el.style.background = 'rgba(34,197,94,0.22)';
+            });
+            document.querySelectorAll('.wire_bar_' + step).forEach(el => {
+                el.style.opacity = '1';
+                el.style.boxShadow = '0 0 12px #fff';
+            });
+            document.querySelectorAll('.wire_arrow_' + step).forEach(el => {
+                el.style.opacity = '1';
+            });
+
+            // ĐÈN BÊN REMOTE THEO KỊCH BẢN
+            let rStep = step;
+            let isBroken = false;
+            let isCrossed = false;
+
+            if (cableTesterScenario === 'perfect') {
+                rStep = step;
+            } else if (cableTesterScenario === 'broken_wire') {
+                if (step === 2 || step === 5) {
+                    isBroken = true;
+                }
+            } else if (cableTesterScenario === 'crossed_wire') {
+                if (step === 0) { rStep = 2; isCrossed = true; }
+                else if (step === 1) { rStep = 5; isCrossed = true; }
+                else if (step === 2) { rStep = 0; isCrossed = true; }
+                else if (step === 5) { rStep = 1; isCrossed = true; }
+            } else if (cableTesterScenario === 'broken_78') {
+                if (step === 6 || step === 7) {
+                    isBroken = true;
+                }
+            }
+
+            if (!isBroken) {
+                document.querySelectorAll('.led_r_' + rStep).forEach(el => {
+                    el.style.background = isCrossed ? '#f59e0b' : '#22c55e';
+                    el.style.boxShadow = isCrossed ? '0 0 14px #f59e0b, 0 0 24px #f59e0b' : '0 0 14px #22c55e, 0 0 24px #22c55e';
+                });
+                document.querySelectorAll('.row_r_' + rStep).forEach(el => {
+                    el.style.background = isCrossed ? 'rgba(245,158,11,0.22)' : 'rgba(34,197,94,0.18)';
+                });
+                document.querySelectorAll('.badge_r_' + rStep).forEach(el => {
+                    el.style.display = 'inline-block';
+                    el.style.color = isCrossed ? '#fbbf24' : '#4ade80';
+                    el.style.background = isCrossed ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.25)';
+                    el.textContent = isCrossed ? 'ĐẢO' : 'OK';
+                });
+                document.querySelectorAll('.pin_stat_' + step).forEach(el => {
+                    el.innerHTML = isCrossed 
+                        ? `<span style="display:inline-flex; align-items:center; justify-content:center; gap:3px; white-space:nowrap; background:#f59e0b; color:#000; font-weight:900; font-size:0.70rem; padding:2px 5px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🔀</span><span style="white-space:nowrap;">ĐẢO (#${rStep + 1})</span></span>`
+                        : `<span style="display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; background:#16a34a; color:#fff; font-weight:900; font-size:0.72rem; padding:2px 7px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🟢</span><span style="white-space:nowrap;">THÔNG</span></span>`;
+                });
+
+                Sound.tone(isCrossed ? 380 : (500 + step * 60), 0.07, isCrossed ? 'square' : 'triangle');
+            } else {
+                document.querySelectorAll('.led_r_' + step).forEach(el => {
+                    el.style.background = '#ef4444';
+                    el.style.boxShadow = '0 0 14px #ef4444, 0 0 24px #ef4444';
+                });
+                document.querySelectorAll('.row_r_' + step).forEach(el => {
+                    el.style.background = 'rgba(239,68,68,0.22)';
+                });
+                document.querySelectorAll('.badge_r_' + step).forEach(el => {
+                    el.style.display = 'inline-block';
+                    el.style.color = '#f87171';
+                    el.style.background = 'rgba(239,68,68,0.25)';
+                    el.textContent = 'ĐỨT';
+                });
+                document.querySelectorAll('.pin_stat_' + step).forEach(el => {
+                    el.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; background:#dc2626; color:#fff; font-weight:900; font-size:0.72rem; padding:2px 7px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🔴</span><span style="white-space:nowrap;">ĐỨT</span></span>`;
+                });
+
+                Sound.tone(200, 0.12, 'sawtooth');
+            }
+
+            document.querySelectorAll('.testerLiveStepText').forEach(el => {
+                el.innerHTML = `Đang quét chân <b>#${step + 1} (${TESTER_PINS[step].name})</b>: ${isBroken ? '<b style="color:#ef4444;">KHÔNG THÔNG MẠCH!</b>' : (isCrossed ? '<b style="color:#f59e0b;">TÍN HIỆU ĐẾN SAI CHÂN!</b>' : '<b style="color:#4ade80;">THÔNG SUỐT!</b>')}`;
+            });
+
+            step++;
+        } else {
+            // HOÀN THÀNH QUÉT 8 CHÂN
+            stopCableTesterTimer();
+            document.querySelectorAll('.btnStartScan').forEach(btn => {
+                btn.textContent = '⚡ ĐO LẠI';
+            });
+
+            // BẬT ĐÈN TỔNG KẾT
+            for (let i = 0; i < 8; i++) {
+                document.querySelectorAll('.led_m_' + i).forEach(el => {
+                    el.style.background = '#22c55e';
+                    el.style.boxShadow = '0 0 10px #22c55e';
+                });
+
+                if (cableTesterScenario === 'perfect') {
+                    document.querySelectorAll('.led_r_' + i).forEach(el => { el.style.background = '#22c55e'; el.style.boxShadow = '0 0 10px #22c55e'; });
+                    document.querySelectorAll('.badge_r_' + i).forEach(el => { el.style.display = 'inline-block'; el.style.color = '#4ade80'; el.style.background = 'rgba(34,197,94,0.25)'; el.textContent = 'OK'; });
+                    document.querySelectorAll('.pin_stat_' + i).forEach(el => {
+                        el.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; background:#16a34a; color:#fff; font-weight:900; font-size:0.72rem; padding:2px 7px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🟢</span><span style="white-space:nowrap;">THÔNG</span></span>`;
+                    });
+                } else if (cableTesterScenario === 'broken_wire') {
+                    if (i === 2 || i === 5) {
+                        document.querySelectorAll('.led_r_' + i).forEach(el => { el.style.background = '#ef4444'; el.style.boxShadow = '0 0 12px #ef4444'; });
+                        document.querySelectorAll('.badge_r_' + i).forEach(el => { el.style.display = 'inline-block'; el.style.color = '#f87171'; el.style.background = 'rgba(239,68,68,0.25)'; el.textContent = 'ĐỨT'; });
+                        document.querySelectorAll('.pin_stat_' + i).forEach(el => {
+                            el.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; background:#dc2626; color:#fff; font-weight:900; font-size:0.72rem; padding:2px 7px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🔴</span><span style="white-space:nowrap;">ĐỨT</span></span>`;
+                        });
+                    } else {
+                        document.querySelectorAll('.led_r_' + i).forEach(el => { el.style.background = '#22c55e'; el.style.boxShadow = '0 0 10px #22c55e'; });
+                        document.querySelectorAll('.badge_r_' + i).forEach(el => { el.style.display = 'inline-block'; el.style.color = '#4ade80'; el.style.background = 'rgba(34,197,94,0.25)'; el.textContent = 'OK'; });
+                        document.querySelectorAll('.pin_stat_' + i).forEach(el => {
+                            el.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; background:#16a34a; color:#fff; font-weight:900; font-size:0.72rem; padding:2px 7px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🟢</span><span style="white-space:nowrap;">THÔNG</span></span>`;
+                        });
+                    }
+                } else if (cableTesterScenario === 'crossed_wire') {
+                    if (i === 0 || i === 1 || i === 2 || i === 5) {
+                        document.querySelectorAll('.led_r_' + i).forEach(el => { el.style.background = '#f59e0b'; el.style.boxShadow = '0 0 12px #f59e0b'; });
+                        document.querySelectorAll('.badge_r_' + i).forEach(el => { el.style.display = 'inline-block'; el.style.color = '#fbbf24'; el.style.background = 'rgba(245,158,11,0.25)'; el.textContent = 'ĐẢO'; });
+                        document.querySelectorAll('.pin_stat_' + i).forEach(el => {
+                            const crossedTo = i === 0 ? 3 : (i === 1 ? 6 : (i === 2 ? 1 : 2));
+                            el.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; gap:3px; white-space:nowrap; background:#f59e0b; color:#000; font-weight:900; font-size:0.70rem; padding:2px 5px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🔀</span><span style="white-space:nowrap;">ĐẢO (#${crossedTo})</span></span>`;
+                        });
+                    } else {
+                        document.querySelectorAll('.led_r_' + i).forEach(el => { el.style.background = '#22c55e'; el.style.boxShadow = '0 0 10px #22c55e'; });
+                        document.querySelectorAll('.badge_r_' + i).forEach(el => { el.style.display = 'inline-block'; el.style.color = '#4ade80'; el.style.background = 'rgba(34,197,94,0.25)'; el.textContent = 'OK'; });
+                        document.querySelectorAll('.pin_stat_' + i).forEach(el => {
+                            el.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; background:#16a34a; color:#fff; font-weight:900; font-size:0.72rem; padding:2px 7px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🟢</span><span style="white-space:nowrap;">THÔNG</span></span>`;
+                        });
+                    }
+                } else if (cableTesterScenario === 'broken_78') {
+                    if (i === 6 || i === 7) {
+                        document.querySelectorAll('.led_r_' + i).forEach(el => { el.style.background = '#ef4444'; el.style.boxShadow = '0 0 12px #ef4444'; });
+                        document.querySelectorAll('.badge_r_' + i).forEach(el => { el.style.display = 'inline-block'; el.style.color = '#f87171'; el.style.background = 'rgba(239,68,68,0.25)'; el.textContent = 'ĐỨT'; });
+                        document.querySelectorAll('.pin_stat_' + i).forEach(el => {
+                            el.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; background:#dc2626; color:#fff; font-weight:900; font-size:0.72rem; padding:2px 7px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🔴</span><span style="white-space:nowrap;">ĐỨT</span></span>`;
+                        });
+                    } else {
+                        document.querySelectorAll('.led_r_' + i).forEach(el => { el.style.background = '#22c55e'; el.style.boxShadow = '0 0 10px #22c55e'; });
+                        document.querySelectorAll('.badge_r_' + i).forEach(el => { el.style.display = 'inline-block'; el.style.color = '#4ade80'; el.style.background = 'rgba(34,197,94,0.25)'; el.textContent = 'OK'; });
+                        document.querySelectorAll('.pin_stat_' + i).forEach(el => {
+                            el.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; background:#16a34a; color:#fff; font-weight:900; font-size:0.72rem; padding:2px 7px; border-radius:4px;"><span style="font-size:0.68rem; line-height:1; flex-shrink:0;">🟢</span><span style="white-space:nowrap;">THÔNG</span></span>`;
+                        });
+                    }
+                }
+            }
+
+            // KẾT LUẬN CHẨN ĐOÁN (FONT LỚN HƠN, RÕ NÉT)
+            let diagHtml = '';
+            let borderColor = '#22c55e';
+            let bgGrad = 'linear-gradient(135deg, rgba(22,101,52,0.5) 0%, rgba(15,23,42,0.95) 100%)';
+            let badgeText = 'ĐẠT CHUẨN';
+            let badgeBg = '#16a34a';
+
+            if (cableTesterScenario === 'perfect') {
+                Sound.success();
+                borderColor = '#22c55e';
+                bgGrad = 'linear-gradient(135deg, rgba(22,101,52,0.5) 0%, rgba(15,23,42,0.95) 100%)';
+                badgeText = 'PASS 100%';
+                badgeBg = '#16a34a';
+                diagHtml = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #166534; padding-bottom:6px; margin-bottom:8px;">
+                        <span style="color:#4ade80; font-weight:900; font-size:1.15rem;">🎉 CÁP MẠNG ĐẠT CHUẨN XUẤT SẮC!</span>
+                        <span style="background:#16a34a; color:#fff; font-size:0.85rem; font-weight:bold; padding:3px 10px; border-radius:5px;">1000 Mbps</span>
+                    </div>
+                    <div style="color:#e2e8f0; font-size:0.92rem; line-height:1.62; display:flex; flex-direction:column; gap:5px;">
+                        <div>• <b>Độ thông mạch:</b> Cả 8/8 sợi đều thông suốt song song từ chân 1 đến chân 8.</div>
+                        <div>• <b>Chuẩn bấm:</b> Chuẩn quốc tế T568B thẳng (Straight-Through Cable).</div>
+                        <div>• <b>Hiệu năng:</b> Đạt tốc độ tối đa <b>1000 Mbps (Gigabit Ethernet)</b>.</div>
+                        <div style="color:#4ade80; font-weight:bold; margin-top:2px;">➔ KẾT LUẬN: Sợi cáp hoàn hảo, sẵn sàng cắm kết nối máy tính vào Switch!</div>
+                    </div>
+                `;
+            } else if (cableTesterScenario === 'broken_wire') {
+                Sound.fail();
+                borderColor = '#ef4444';
+                bgGrad = 'linear-gradient(135deg, rgba(153,27,27,0.5) 0%, rgba(15,23,42,0.95) 100%)';
+                badgeText = 'FAIL (LỖI)';
+                badgeBg = '#dc2626';
+                diagHtml = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #991b1b; padding-bottom:6px; margin-bottom:8px;">
+                        <span style="color:#f87171; font-weight:900; font-size:1.15rem;">❌ LỖI: ĐỨT LÕI DÂY SỐ 3 &amp; 6!</span>
+                        <span style="background:#dc2626; color:#fff; font-size:0.85rem; font-weight:bold; padding:3px 10px; border-radius:5px;">MẤT MẠNG</span>
+                    </div>
+                    <div style="color:#e2e8f0; font-size:0.92rem; line-height:1.62; display:flex; flex-direction:column; gap:5px;">
+                        <div>• <b>Hiện tượng:</b> Đèn số 3 (Trắng Xanh Lá) và số 6 (Xanh Lá) bên Remote tắt đỏ.</div>
+                        <div>• <b>Nguyên nhân:</b> Lưỡi dao bấm kìm chưa ngập chân đồng hoặc sợi dây bị gãy ngầm.</div>
+                        <div>• <b>Hậu quả:</b> Chân 3 & 6 là cặp nhận dữ liệu (RX+/RX-). Máy tính báo <i>"Media disconnected"</i>!</div>
+                        <div style="color:#f87171; font-weight:bold; margin-top:2px;">➔ BIỆN PHÁP: Cắt bỏ đầu giắc hỏng, tuốt vỏ và bấm lại đầu giắc RJ-45 mới.</div>
+                    </div>
+                `;
+            } else if (cableTesterScenario === 'crossed_wire') {
+                Sound.fail();
+                borderColor = '#f59e0b';
+                bgGrad = 'linear-gradient(135deg, rgba(180,83,9,0.5) 0%, rgba(15,23,42,0.95) 100%)';
+                badgeText = 'BẤM SAI';
+                badgeBg = '#d97706';
+                diagHtml = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #b45309; padding-bottom:6px; margin-bottom:8px;">
+                        <span style="color:#fbbf24; font-weight:900; font-size:1.15rem;">⚠️ CẢNH BÁO: BẤM NHẦM CHÉO CHÂN 1 ↔ 3!</span>
+                        <span style="background:#d97706; color:#fff; font-size:0.85rem; font-weight:bold; padding:3px 10px; border-radius:5px;">MISWIRE</span>
+                    </div>
+                    <div style="color:#e2e8f0; font-size:0.92rem; line-height:1.62; display:flex; flex-direction:column; gap:5px;">
+                        <div>• <b>Hiện tượng:</b> Đèn 1 Master sáng thì đèn 3 Remote sáng; Đèn 2 sang 6.</div>
+                        <div>• <b>Nguyên nhân:</b> Xếp lộn vị trí màu giữa cặp Cam và cặp Xanh Lá trước khi bấm kìm.</div>
+                        <div>• <b>Hậu quả:</b> Tín hiệu phát vào nhầm cổng nhận, không thể đồng bộ dữ liệu mạng.</div>
+                        <div style="color:#fbbf24; font-weight:bold; margin-top:2px;">➔ BIỆN PHÁP: Cắt bỏ đầu giắc, xếp lại đúng thứ tự bảng màu T568B và bấm lại.</div>
+                    </div>
+                `;
+            } else if (cableTesterScenario === 'broken_78') {
+                Sound.fail();
+                borderColor = '#f59e0b';
+                bgGrad = 'linear-gradient(135deg, rgba(180,83,9,0.5) 0%, rgba(15,23,42,0.95) 100%)';
+                badgeText = 'HẠ TỐC ĐỘ';
+                badgeBg = '#d97706';
+                diagHtml = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #b45309; padding-bottom:6px; margin-bottom:8px;">
+                        <span style="color:#fbbf24; font-weight:900; font-size:1.15rem;">⚠️ CẢNH BÁO: ĐỨT CẶP DÂY 7 &amp; 8 (100 MBPS)!</span>
+                        <span style="background:#d97706; color:#fff; font-size:0.85rem; font-weight:bold; padding:3px 10px; border-radius:5px;">100 Mbps</span>
+                    </div>
+                    <div style="color:#e2e8f0; font-size:0.92rem; line-height:1.62; display:flex; flex-direction:column; gap:5px;">
+                        <div>• <b>Hiện tượng:</b> 4 sợi chính (1, 2, 3, 6) thông, nhưng đứt chân 7 & 8 (Trắng Nâu & Nâu).</div>
+                        <div>• <b>Nguyên nhân:</b> Chân 7 và 8 bị tuột khỏi rãnh nhựa của hạt mạng RJ-45.</div>
+                        <div>• <b>Hậu quả:</b> Cáp vẫn vào mạng chuẩn Fast Ethernet (100 Mbps) nhưng <b>KHÔNG ĐẠT</b> Gigabit 1000 Mbps!</div>
+                        <div style="color:#fbbf24; font-weight:bold; margin-top:2px;">➔ BIỆN PHÁP: Bấm lại cả 8 sợi chạm đáy khe đồng để tận dụng tối đa băng thông 1 Gbps.</div>
+                    </div>
+                `;
+            }
+
+            document.querySelectorAll('.testerLiveBadge').forEach(badge => {
+                badge.style.background = badgeBg;
+                badge.textContent = badgeText;
+            });
+
+            document.querySelectorAll('.testerLiveStepText').forEach(el => {
+                el.innerHTML = '✅ Quá trình quét hoàn tất! Kết quả chẩn đoán kỹ thuật chi tiết hiển thị bên dưới.';
+            });
+
+            document.querySelectorAll('.testerDiagnosisBox').forEach(box => {
+                box.style.border = `2.5px solid ${borderColor}`;
+                box.style.background = bgGrad;
+                box.innerHTML = diagHtml;
+            });
+        }
+    }, cableTesterSpeed);
+}
+// Lắng nghe phím ESC để đóng modal
+window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeCableTesterModal();
+    }
+});
+
+// Chạy lệnh CMD
+function setCmdNetworkState(state) {
+    Sound.click();
+    if (state === 'connected') {
+        rj45Plugged = true;
+        switchPlugged = true;
+        cmdOutput = `C:\\Users\\Student> [HỆ THỐNG]: ĐÃ CẮM CÁP MẠNG RJ-45! (Laptop ↔ Switch Cổng ${selectedSwitchPort})\nĐèn cổng Switch đã sáng xanh, đường truyền vật lý thông suốt (Link Speed: 1000 Mbps).\nHãy bấm nút "Chạy lệnh: ipconfig" hoặc "Chạy lệnh: ping 192.168.1.1" để kiểm tra!`;
+    } else {
+        rj45Plugged = false;
+        switchPlugged = false;
+        cmdOutput = `C:\\Users\\Student> [HỆ THỐNG]: ĐÃ RÚT CÁP MẠNG! (Chưa cắm giắc RJ-45)\nĐèn cổng Switch tắt, mất kết nối vật lý (Media disconnected).\nHãy bấm nút "Chạy lệnh: ipconfig" hoặc "Chạy lệnh: ping 192.168.1.1" để quan sát sự cố mất mạng!`;
+    }
+    renderTab3_ConnectRj45Wifi();
 }
 
 // Chạy lệnh CMD
 function executeCmd(cmd) {
     Sound.click();
-    const isOnline = rj45Plugged || wifiConnected;
+    const isWired = rj45Plugged && switchPlugged;
+    const isOnline = isWired || wifiConnected;
 
     if (cmd === 'ipconfig') {
-        const ethIp = rj45Plugged ? '192.168.1.15' : 'None';
+        const ethIp = isWired ? '192.168.1.15' : 'None';
         const wifiIp = wifiConnected ? '192.168.1.108' : 'None';
         cmdOutput = `C:\\Users\\Student> ipconfig
 
 Windows IP Configuration
 
 Ethernet adapter Ethernet (Cáp có dây RJ-45):
-   Media State . . . . . . . . . . . : ${rj45Plugged ? 'Connected (Đã cắm cáp)' : 'Media disconnected (Chưa cắm cáp)'}
+   Media State . . . . . . . . . . . : ${isWired ? 'Connected (✅ ĐÃ CẮM CÁP)' : 'Media disconnected (❌ CHƯA CẮM CÁP)'}
    IPv4 Address. . . . . . . . . . . : ${ethIp}
-   Subnet Mask . . . . . . . . . . . : ${rj45Plugged ? '255.255.255.0' : 'None'}
-   Default Gateway . . . . . . . . . : ${rj45Plugged ? '192.168.1.1' : 'None'}
+   Subnet Mask . . . . . . . . . . . : ${isWired ? '255.255.255.0' : 'None'}
+   Default Gateway . . . . . . . . . : ${isWired ? '192.168.1.1' : 'None'}
 
 Wireless LAN adapter Wi-Fi (Sóng không dây):
-   Media State . . . . . . . . . . . : ${wifiConnected ? 'Connected (Đã kết nối THPT_PHANCHUTRINH_5G)' : 'Media disconnected'}
-   IPv4 Address. . . . . . . . . . . : ${wifiIp}
+   Media State . . . . . . . . . . . : ${wifiConnected ? 'Connected (THPT_PHANCHUTRINH_5G)' : 'Media disconnected'}
+   IPv4 Address. . . . . . . . . . . : ${wifiConnected ? '192.168.1.108' : 'None'}
    Subnet Mask . . . . . . . . . . . : ${wifiConnected ? '255.255.255.0' : 'None'}
    Default Gateway . . . . . . . . . : ${wifiConnected ? '192.168.1.1' : 'None'}`;
     } else if (cmd === 'ping') {
@@ -5700,15 +6387,16 @@ Wireless LAN adapter Wi-Fi (Sóng không dây):
             cmdOutput = `C:\\Users\\Student> ping 192.168.1.1
 
 Pinging 192.168.1.1 with 32 bytes of data:
-PING: transmit failed. General failure. (Máy tính chưa kết nối cáp mạng hoặc Wi-Fi!)
+PING: transmit failed. General failure. (❌ CÁP MẠNG CHƯA CẮM! Mất kết nối vật lý)
 PING: transmit failed. General failure.
 PING: transmit failed. General failure.
 PING: transmit failed. General failure.
 
 Ping statistics for 192.168.1.1:
-    Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)`;
+    Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)
+[KẾT LUẬN]: ❌ MẤT KẾT NỐI MẠNG! Hãy cắm cáp mạng vào Switch hoặc kết nối Wi-Fi!`;
         } else {
-            const timeMs = rj45Plugged ? '<1ms' : '2ms';
+            const timeMs = isWired ? '<1ms' : '2ms';
             cmdOutput = `C:\\Users\\Student> ping 192.168.1.1
 
 Pinging 192.168.1.1 (Router Trung Tâm) with 32 bytes of data:
@@ -5721,15 +6409,12 @@ Ping statistics for 192.168.1.1:
     Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
 Approximate round trip times in milli-seconds:
     Minimum = 0ms, Maximum = 2ms, Average = 1ms
-[KẾT LUẬN]: Đường truyền từ máy tính đến Router thông suốt hoàn toàn!`;
+[KẾT LUẬN]: ✅ ĐƯỜNG TRUYỀN THÔNG SUỐT HOÀN TOÀN! (${isWired ? 'Cáp đã cắm khít vào Cổng ' + selectedSwitchPort + ' Switch' : 'Đã kết nối sóng Wi-Fi'})`;
         }
     }
-    drawTab3Stage();
+    renderTab3_ConnectRj45Wifi();
 }
 
-// ==========================================
-// RENDER TAB 3 (STAGE CONTROLS & SIDEBAR)
-// ==========================================
 function renderTab3_ConnectRj45Wifi() {
     document.getElementById('stageTitle').innerHTML = `
         <span>🔌 5. Thực Hành Kết Nối Có Dây (Giắc RJ45) &amp; Wi-Fi Win 11</span>
@@ -5737,63 +6422,84 @@ function renderTab3_ConnectRj45Wifi() {
 
     let controlsHtml = `
         <div style="display:flex; flex-direction:column; gap:7px; width:100%;">
-            <!-- Hàng 1: Tiểu Mục Thực Hành -->
+            <!-- Hàng 1: Tiểu Mục Thực Hành (Hiển thị đầy đủ 6 phần, không bị che khuất) -->
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <div style="display:flex; gap:6px; background:#090d16; padding:3px 8px; border-radius:8px; border:1px solid #334155; align-items:center;">
+                <div style="display:flex; gap:6px; background:#090d16; padding:3px 8px; border-radius:8px; border:1px solid #334155; align-items:center; flex-wrap:wrap;">
                     <span style="font-size:0.82rem; font-weight:800; color:#cbd5e1;">Nội Dung:</span>
-                    <button class="btn ${tab3SubMode === 'types' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px;" onclick="setTab3SubMode('types')">📚 1. Các Loại Kết Nối (So Sánh)</button>
+                    <button class="btn ${tab3SubMode === 'types' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px;" onclick="setTab3SubMode('types')">📚 1. So Sánh Loại Kết Nối</button>
                     <button class="btn ${tab3SubMode === 'real_gallery' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px;" onclick="setTab3SubMode('real_gallery')">📸 2. Nhận Biết Thiết Bị Thật</button>
-                    <button class="btn ${tab3SubMode === 'plug_lab' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px;" onclick="setTab3SubMode('plug_lab')">🔌 3. Cách Kết Nối Có Dây (RJ45)</button>
-                    <button class="btn ${tab3SubMode === 'wifi' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px;" onclick="setTab3SubMode('wifi')">` + getWifiIconSvg(4, '#38bdf8', 16) + ` 4. Cách Kết Nối Wi-Fi (Win 11)</button>
-                    <button class="btn ${tab3SubMode === 'cmd_lab' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px;" onclick="setTab3SubMode('cmd_lab')">💻 5. Kiểm Tra Mạng (cmd ping)</button>
+                    <button class="btn ${tab3SubMode === 'plug_lab' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px;" onclick="setTab3SubMode('plug_lab')">🔌 3. Cắm Cáp RJ45 (Laptop ↔ Switch)</button>
+                    <button class="btn ${tab3SubMode === 'tester_lab' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px; font-weight:bold;" onclick="setTab3SubMode('tester_lab')">📟 4. Máy Đo Cáp Mạng (8 LED)</button>
+                    <button class="btn ${tab3SubMode === 'wifi' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px;" onclick="setTab3SubMode('wifi')">` + getWifiIconSvg(4, '#38bdf8', 16) + ` 5. Kết Nối Wi-Fi (Win 11)</button>
+                    <button class="btn ${tab3SubMode === 'cmd_lab' ? 'btn-green' : 'btn-outline'}" style="font-size:0.75rem; padding:4px 8px;" onclick="setTab3SubMode('cmd_lab')">💻 6. Lệnh Kiểm Tra (cmd ping)</button>
                 </div>
             </div>
 
-    `;
-
-    // Ẩn hoàn toàn dòng Thao Tác ở Phần 1 (types) và Phần 2 (real_gallery) vì không cần thiết
-    if (tab3SubMode === 'plug_lab' || tab3SubMode === 'wifi' || tab3SubMode === 'cmd_lab') {
-        controlsHtml += `
-            <!-- Hàng 2: Thao Tác (Dòng riêng biệt) -->
+            <!-- Hàng 2: Thao Tác (LUÔN LUÔN HIỂN THỊ TRONG MỌI TIỂU MỤC, KHÔNG BAO GIỜ BỊ ẨN) -->
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; width:100%;">
                 <span style="font-size:0.8rem; color:#cbd5e1; font-weight:bold;">Thao Tác:</span>
+    `;
+
+    if (tab3SubMode === 'types') {
+        controlsHtml += `
+            <button class="btn btn-green" style="font-size:0.82rem; padding:4px 12px;" onclick="setTab3SubMode('plug_lab')">🔌 Cắm Cáp RJ45 (Laptop ↔ Switch)</button>
+            <button class="btn btn-amber" style="font-size:0.82rem; padding:4px 12px; font-weight:800;" onclick="runCableTester()">📟 Bật Máy Đo Cáp (8 LED)</button>
+            <button class="btn btn-blue" style="font-size:0.82rem; padding:4px 12px;" onclick="setTab3SubMode('wifi')">📶 Kết Nối Wi-Fi Win 11</button>
         `;
-        if (tab3SubMode === 'plug_lab') {
-            controlsHtml += `
-                <button class="btn ${rj45Plugged ? 'btn-red' : 'btn-green'}" style="font-size:0.82rem; padding:4px 12px;" onclick="toggleRj45Laptop()">
-                    ${rj45Plugged ? '⏏️ Rút Giắc Khỏi Laptop' : '🔌 Cắm Giắc Vào Cổng Laptop'}
-                </button>
-                <button class="btn ${switchPlugged ? 'btn-red' : 'btn-blue'}" style="font-size:0.82rem; padding:4px 12px;" onclick="toggleRj45Switch()">
-                    ${switchPlugged ? `⏏️ Rút Cáp Khỏi Cổng ${selectedSwitchPort} Switch` : `🔌 Cắm Cáp Vào Cổng ${selectedSwitchPort} Switch`}
-                </button>
-                <button class="btn btn-purple" style="font-size:0.82rem; padding:4px 12px;" onclick="plugBothEnds()">
-                    ⚡ Cắm Đồng Thời 2 Đầu (Laptop ↔ Switch)
-                </button>
-                <button class="btn btn-amber" style="font-size:0.82rem; padding:4px 12px;" onclick="runCableTester()">
-                    📟 Bật Máy Đo Cáp (8 LED)
-                </button>
-            `;
-        } else if (tab3SubMode === 'wifi') {
-            controlsHtml += `
-                <button class="btn ${wifiPowerOn ? 'btn-green' : 'btn-red'}" style="font-size:0.82rem; padding:4px 12px;" onclick="toggleWifiPower()">
-                    ${wifiPowerOn ? getWifiIconSvg(4, '#4ade80', 16) + ' Card Wi-Fi: ĐANG BẬT (Gạt Tắt)' : '📴 Card Wi-Fi: ĐANG TẮT (Gạt Bật)'}
-                </button>
-                <button class="btn ${wifiConnected ? 'btn-red' : 'btn-blue'}" style="font-size:0.82rem; padding:4px 12px;" onclick="${wifiConnected ? 'disconnectWifi()' : 'startWifiAuth()'}">
-                    ${wifiConnected ? '❌ Ngắt Kết Nối THPT_PHANCHUTRINH_5G' : '🔑 Kết Nối Mạng Trường (Gõ Pass: 12345678)'}
-                </button>
-                <button class="btn btn-purple" style="font-size:0.82rem; padding:4px 12px;" onclick="toggleWifiPropertiesModal()">
-                    📋 Xem Thuộc Tính Mạng (Properties)
-                </button>
-            `;
-        } else if (tab3SubMode === 'cmd_lab') {
-            controlsHtml += `
-                <button class="btn btn-blue" style="font-size:0.82rem; padding:4px 12px;" onclick="executeCmd('ipconfig')">💻 Chạy Lệnh ipconfig</button>
-                <button class="btn btn-green" style="font-size:0.82rem; padding:4px 12px;" onclick="executeCmd('ping')">📶 Chạy Lệnh ping 192.168.1.1</button>
-            `;
-        }
-        controlsHtml += `</div>`;
+    } else if (tab3SubMode === 'real_gallery') {
+        controlsHtml += `
+            <button class="btn ${selectedRealDev==='laptop'?'btn-green':'btn-outline'}" style="font-size:0.8rem; padding:4px 10px;" onclick="selectRealDev('laptop')">💻 Cổng Laptop</button>
+            <button class="btn ${selectedRealDev==='cable'?'btn-green':'btn-outline'}" style="font-size:0.8rem; padding:4px 10px;" onclick="selectRealDev('cable')">🔌 Giắc Cáp RJ45</button>
+            <button class="btn ${selectedRealDev==='switch8'?'btn-green':'btn-outline'}" style="font-size:0.8rem; padding:4px 10px;" onclick="selectRealDev('switch8')">🖧 Switch 8 Cổng</button>
+            <button class="btn ${selectedRealDev==='projector'?'btn-green':'btn-outline'}" style="font-size:0.8rem; padding:4px 10px;" onclick="selectRealDev('projector')">🖥️ Cổng Mạng PC</button>
+            <button class="btn btn-amber" style="font-size:0.82rem; padding:4px 12px; font-weight:800;" onclick="runCableTester()">📟 Bật Máy Đo Cáp (8 LED)</button>
+        `;
+    } else if (tab3SubMode === 'plug_lab') {
+        controlsHtml += `
+            <button class="btn ${rj45Plugged ? 'btn-red' : 'btn-green'}" style="font-size:0.82rem; padding:4px 12px;" onclick="toggleRj45Laptop()">
+                ${rj45Plugged ? '⏏️ Rút Giắc Khỏi Laptop' : '🔌 Cắm Giắc Vào Cổng Laptop'}
+            </button>
+            <button class="btn ${switchPlugged ? 'btn-red' : 'btn-blue'}" style="font-size:0.82rem; padding:4px 12px;" onclick="toggleRj45Switch()">
+                ${switchPlugged ? `⏏️ Rút Cáp Khỏi Cổng ${selectedSwitchPort} Switch` : `🔌 Cắm Cáp Vào Cổng ${selectedSwitchPort} Switch`}
+            </button>
+            <button class="btn btn-purple" style="font-size:0.82rem; padding:4px 12px;" onclick="plugBothEnds()">
+                ⚡ Cắm Đồng Thời 2 Đầu (Laptop ↔ Switch)
+            </button>
+            <button class="btn btn-amber" style="font-size:0.82rem; padding:4px 12px; font-weight:800;" onclick="runCableTester()">
+                📟 Bật Máy Đo Cáp (8 LED)
+            </button>
+        `;
+    } else if (tab3SubMode === 'tester_lab') {
+        controlsHtml += `
+            <button class="btn btn-blue" style="font-size:0.82rem; padding:4px 14px; font-weight:900;" onclick="startCableTesterScan()">⚡ Bắt Đầu Đo Quét 8 Đèn</button>
+            <button class="btn btn-outline" style="font-size:0.82rem; padding:4px 12px; font-weight:bold;" onclick="resetCableTesterLeds()">🔄 Đặt Lại (Reset)</button>
+            <button class="btnTesterSpeed btn btn-outline" style="font-size:0.82rem; padding:4px 12px; font-weight:bold;" onclick="toggleTesterSpeed()">⏱️ Tốc Độ: Bình Thường</button>
+            <button class="btn btn-amber" style="font-size:0.82rem; padding:4px 12px; font-weight:bold;" onclick="openCableTesterModal()">🗖 Cửa Sổ Phóng To (Modal)</button>
+            <button class="btn btn-green" style="font-size:0.82rem; padding:4px 12px; font-weight:bold;" onclick="setTab3SubMode('plug_lab')">🔌 Sang Cắm Cáp RJ45 →</button>
+        `;
+    } else if (tab3SubMode === 'wifi') {
+        controlsHtml += `
+            <button class="btn ${wifiPowerOn ? 'btn-green' : 'btn-red'}" style="font-size:0.82rem; padding:4px 12px;" onclick="toggleWifiPower()">
+                ${wifiPowerOn ? getWifiIconSvg(4, '#4ade80', 16) + ' Card Wi-Fi: ĐANG BẬT (Gạt Tắt)' : '📴 Card Wi-Fi: ĐANG TẮT (Gạt Bật)'}
+            </button>
+            <button class="btn ${wifiConnected ? 'btn-red' : 'btn-blue'}" style="font-size:0.82rem; padding:4px 12px;" onclick="${wifiConnected ? 'disconnectWifi()' : 'startWifiAuth()'}">
+                ${wifiConnected ? '❌ Ngắt Kết Nối THPT_PHANCHUTRINH_5G' : '🔑 Kết Nối Mạng Trường (Gõ Pass: 12345678)'}
+            </button>
+            <button class="btn btn-purple" style="font-size:0.82rem; padding:4px 12px;" onclick="toggleWifiPropertiesModal()">
+                📋 Xem Thuộc Tính Mạng (Properties)
+            </button>
+        `;
+    } else if (tab3SubMode === 'cmd_lab') {
+        const isWired = rj45Plugged && switchPlugged;
+        controlsHtml += `
+            <button class="btn ${isWired ? 'btn-green' : 'btn-outline'}" style="font-size:0.82rem; padding:4px 12px; font-weight:bold;" onclick="setCmdNetworkState('connected')">🟢 1. Cáp: ĐÃ CẮM CÁP</button>
+            <button class="btn ${!isWired ? 'btn-red' : 'btn-outline'}" style="font-size:0.82rem; padding:4px 12px; font-weight:bold;" onclick="setCmdNetworkState('disconnected')">🔴 2. Cáp: CHƯA CẮM CÁP</button>
+            <button class="btn btn-blue" style="font-size:0.82rem; padding:4px 12px; font-weight:bold;" onclick="executeCmd('ipconfig')">💻 Chạy ipconfig</button>
+            <button class="btn btn-amber" style="font-size:0.82rem; padding:4px 12px; font-weight:bold;" onclick="executeCmd('ping')">📶 Chạy ping 192.168.1.1</button>
+        `;
     }
-    controlsHtml += `</div>`;
+
+    controlsHtml += `</div></div>`;
     document.getElementById('stageControls').innerHTML = controlsHtml;
 
     // Cập nhật nội dung sidebar theo từng tiểu mục
@@ -5847,7 +6553,36 @@ function renderTab3_ConnectRj45Wifi() {
             <div class="box-info">
                 <div class="box-title">KIỂM TRA CÁP VỚI MÁY TESTER:</div>
                 <div class="box-body">
-                    Máy đo cáp mạng có 8 đèn LED chạy lần lượt từ 1 đến 8. Nếu cả 8 đèn cùng sáng xanh theo thứ tự thì sợi cáp đã được bấm chuẩn xác 100%!
+                    Máy đo cáp mạng có 8 đèn LED chạy lần lượt từ 1 đến 8. Bấm nút màu cam <b>[📟 Bật Máy Đo Cáp (8 LED)]</b> trên thanh Thao tác để kiểm tra ngay độ thông mạch!
+                </div>
+            </div>
+        `;
+    } else if (tab3SubMode === 'tester_lab') {
+        document.getElementById('sideHead').innerHTML = `<span>📖 MÁY ĐO THÔNG MẠNG CÁP RJ-45</span>`;
+        document.getElementById('sideContent').innerHTML = `
+            <div class="box-info">
+                <div class="box-title">NGUYÊN LÝ HOẠT ĐỘNG:</div>
+                <div class="box-body">
+                    • Máy đo gồm 2 bộ phận tách rời: <b>Master Unit (Bộ phát)</b> và <b>Remote Unit (Bộ thu)</b>.<br>
+                    • Máy phát lần lượt từng xung điện nhỏ quét qua các chân từ <b>1 đến 8</b>.<br>
+                    • Đèn LED tương ứng trên cả 2 bộ sẽ cùng sáng nếu sợi dây đó liền mạch và bấm đúng vị trí.
+                </div>
+            </div>
+            <div class="box-info">
+                <div class="box-title">Ý NGHĨA 8 SỢI DÂY (CHUẨN T568B):</div>
+                <div class="box-body">
+                    • <b>Chân 1 & 2:</b> Cặp TX (Trắng Cam, Cam) - Truyền tín hiệu dữ liệu đi.<br>
+                    • <b>Chân 3 & 6:</b> Cặp RX (Trắng Xanh Lá, Xanh Lá) - Nhận dữ liệu về. <i>(Nếu đứt 2 dây này sẽ mất mạng hoàn toàn!)</i><br>
+                    • <b>Chân 4 & 5:</b> Cặp phụ / cấp nguồn PoE.<br>
+                    • <b>Chân 7 & 8:</b> Cặp tốc độ cao Gigabit 1000 Mbps. <i>(Nếu đứt chân 7&8, mạng vẫn chạy nhưng bị hạ xuống 100 Mbps)</i>.
+                </div>
+            </div>
+            <div class="box-info">
+                <div class="box-title">CÁCH ĐỌC KẾT QUẢ ĐÈN:</div>
+                <div class="box-body">
+                    • <b>Chuẩn 100% (PASS):</b> Cả 2 bên sáng đều nhịp nhàng từ 1 &rarr; 8.<br>
+                    • <b>Đứt dây (FAIL):</b> Đèn bên Remote không sáng ở chân bị đứt.<br>
+                    • <b>Đảo chéo (MISWIRE):</b> Đèn nhảy sai thứ tự chân (ví dụ 1 &rarr; 3, 2 &rarr; 6).
                 </div>
             </div>
         `;
@@ -6191,8 +6926,9 @@ function drawTab3Stage() {
                 <!-- PHẦN 2: CẮM ĐẦU CÁP CÒN LẠI VÀO SWITCH 8 CỔNG (CẮM TRỰC DIỆN VÀO CỔNG CHỌN) -->
                 <div style="background:#090d16; border:2px solid ${switchPlugged ? '#22c55e' : '#334155'}; border-radius:10px; padding:12px; box-shadow:0 6px 20px rgba(0,0,0,0.6);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
-                        <div style="font-weight:900; color:#38bdf8; font-size:0.88rem;">
-                            🖧 BƯỚC 2: CẮM ĐẦU DÂY CÒN LẠI VÀO SWITCH 8 CỔNG (CHỌN CỔNG ĐỂ CẮM)
+                        <div style="font-weight:900; color:#38bdf8; font-size:0.88rem; display:flex; align-items:center; gap:8px;">
+                            <span>🖧 BƯỚC 2: CẮM ĐẦU DÂY CÒN LẠI VÀO SWITCH 8 CỔNG (CHỌN CỔNG ĐỂ CẮM)</span>
+                            <span style="background:${switchPlugged ? '#15803d' : '#991b1b'}; color:#fff; font-size:0.75rem; font-weight:900; padding:2px 8px; border-radius:4px; border:1px solid ${switchPlugged ? '#22c55e' : '#ef4444'};">${switchPlugged ? `✅ CỔNG ${selectedSwitchPort}: ĐÃ CẮM CÁP` : `❌ CỔNG ${selectedSwitchPort}: CHƯA CẮM CÁP`}</span>
                         </div>
                         <div style="display:flex; gap:6px; align-items:center;">
                             <span style="font-size:0.75rem; color:#cbd5e1; font-weight:bold;">Chọn Cổng Cắm:</span>
@@ -6213,7 +6949,7 @@ function drawTab3Stage() {
                             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:6px; margin-bottom:10px;">
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <span style="font-size:0.82rem; font-weight:900; color:#38bdf8; letter-spacing:0.5px;">GIGABIT ETHERNET SWITCH 8-PORT (10/100/1000)</span>
-                                    <span style="background:#15803d; color:#fff; font-size:0.62rem; font-weight:bold; padding:1px 6px; border-radius:3px;">L2 SWITCH</span>
+                                    <span style="background:#15803d; color:#fff; font-size:0.62rem; font-weight:bold; padding:1px 6px; border-radius:3px;">SWITCH</span>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <div style="display:flex; align-items:center; gap:4px;">
@@ -6292,6 +7028,9 @@ function drawTab3Stage() {
 
             </div>
         `;
+    } else if (tab3SubMode === 'tester_lab') {
+        // TIỂU MỤC 4: MÔ PHỎNG MÁY ĐO CÁP MẠNG (8 ĐÈN LED TUẦN TỰ) TRONG KHUNG SÂN KHẤU
+        devLayer.innerHTML = getCableTesterHtml(false);
     } else if (tab3SubMode === 'wifi') {
         // =========================================================================
         // TIỂU MỤC 4: THỰC HÀNH KẾT NỐI WI-FI WINDOWS 11 CHUẨN XÁC 100% 
@@ -6553,33 +7292,59 @@ function drawTab3Stage() {
             </div>
         `;
     } else {
-        // TIỂU MỤC 5: THỰC HÀNH LỆNH CMD (IPCONFIG & PING)
+        // TIỂU MỤC 6: THỰC HÀNH LỆNH CMD (IPCONFIG & PING)
+        const isWired = rj45Plugged && switchPlugged;
+        const isOnline = isWired || wifiConnected;
         devLayer.innerHTML = `
-            <div style="padding:15px; max-width:780px; margin:0 auto; height:100%; display:flex; flex-direction:column; gap:10px;">
+            <div style="padding:10px 14px; max-width:840px; margin:0 auto; height:100%; display:flex; flex-direction:column; gap:8px; box-sizing:border-box;">
+                
+                <!-- KHỐI CHỌN TRẠNG THÁI MẠNG CÓ DÂY (ĐÃ CẮM / CHƯA CẮM) -->
+                <div style="background:#090d16; border:2px solid ${isWired ? '#10b981' : '#ef4444'}; border-radius:10px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; box-shadow:0 4px 16px rgba(0,0,0,0.6);">
+                    <div>
+                        <div style="font-size:0.78rem; color:#cbd5e1; font-weight:bold; margin-bottom:4px;">
+                            CHỌN 1 TRONG 2 TRẠNG THÁI ĐỂ KIỂM TRA MẠNG:
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <button class="btn ${isWired ? 'btn-green' : 'btn-outline'}" style="font-size:0.8rem; padding:5px 12px; font-weight:bold;" onclick="setCmdNetworkState('connected')">
+                                🟢 1. ĐÃ CẮM CÁP &amp; ĐÃ KẾT NỐI
+                            </button>
+                            <button class="btn ${!isWired ? 'btn-red' : 'btn-outline'}" style="font-size:0.8rem; padding:5px 12px; font-weight:bold;" onclick="setCmdNetworkState('disconnected')">
+                                🔴 2. CHƯA CẮM CÁP &amp; CHƯA KẾT NỐI
+                            </button>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span class="badge-sub" style="font-size:0.82rem; padding:5px 12px; background:${isWired ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}; color:${isWired ? '#34d399' : '#f87171'}; border:1.5px solid ${isWired ? '#10b981' : '#ef4444'}; border-radius:6px; font-weight:900;">
+                            ${isWired ? '✓ Trạng Thái: ĐÃ KẾT NỐI (ONLINE)' : '✕ Trạng Thái: CHƯA KẾT NỐI (OFFLINE)'}
+                        </span>
+                    </div>
+                </div>
+
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                    <div style="font-weight:900; color:#38bdf8; font-size:0.92rem;">
+                    <div style="font-weight:900; color:#38bdf8; font-size:0.88rem;">
                         💻 MÔ PHỎNG CỬA SỔ DÒNG LỆNH WINDOWS (COMMAND PROMPT - CMD)
                     </div>
                     <div style="display:flex; gap:6px;">
-                        <button class="btn btn-green" style="font-size:0.75rem; padding:4px 10px;" onclick="executeCmd('ipconfig')">
-                            ▶️ Chạy lệnh: ipconfig
+                        <button class="btn btn-blue" style="font-size:0.75rem; padding:4px 10px;" onclick="executeCmd('ipconfig')">
+                            ▶️ Chạy: ipconfig
                         </button>
-                        <button class="btn btn-amber" style="font-size:0.75rem; padding:4px 10px;" onclick="executeCmd('ping')">
-                            ▶️ Chạy lệnh: ping 192.168.1.1
+                        <button class="btn btn-green" style="font-size:0.75rem; padding:4px 10px;" onclick="executeCmd('ping')">
+                            ▶️ Chạy: ping 192.168.1.1
                         </button>
                     </div>
                 </div>
 
                 <!-- CỬA SỔ CMD WINDOWS -->
-                <div style="background:#0c0c0c; border:2px solid #334155; border-radius:6px; flex:1; min-height:260px; padding:12px; font-family:'Courier New', monospace; font-size:0.8rem; color:#cccccc; overflow-y:auto; box-shadow:0 8px 25px rgba(0,0,0,0.8);">
-                    <div style="border-bottom:1px solid #222; padding-bottom:4px; margin-bottom:8px; color:#888; font-size:0.72rem;">
+                <div style="background:#0c0c0c; border:2px solid #334155; border-radius:6px; flex:1; min-height:220px; padding:10px 14px; font-family:'Courier New', monospace; font-size:0.8rem; color:#cccccc; overflow-y:auto; box-shadow:0 8px 25px rgba(0,0,0,0.8);">
+                    <div style="border-bottom:1px solid #222; padding-bottom:4px; margin-bottom:6px; color:#888; font-size:0.72rem;">
                         Command Prompt - Microsoft Windows [Version 10.0.22631.3007]
                     </div>
-                    <pre id="cmdOutputArea" style="margin:0; white-space:pre-wrap; color:#38bdf8;">${cmdOutput || 'Microsoft Windows [Version 10.0.22631.3007]\n(c) Microsoft Corporation. All rights reserved.\n\nC:\\Users\\Student> _\n\n[Gợi ý]: Hãy bấm vào các nút bên trên để chạy lệnh ipconfig (xem IP) hoặc ping (kiểm tra đường truyền tới Router)!'}</pre>
+                    <pre id="cmdOutputArea" style="margin:0; white-space:pre-wrap; color:${isOnline ? '#38bdf8' : '#fca5a5'};">${cmdOutput || 'Microsoft Windows [Version 10.0.22631.3007]\n(c) Microsoft Corporation. All rights reserved.\n\nC:\\Users\\Student> _\n\n[Gợi ý]: Hãy bấm chọn 1 trong 2 trạng thái mạng bên trên (Đã cắm / Chưa cắm), sau đó bấm nút chạy lệnh ipconfig hoặc ping 192.168.1.1 để quan sát kết quả!'}</pre>
                 </div>
 
-                <div style="font-size:0.75rem; color:#94a3b8; background:#131c2e; padding:8px 12px; border-radius:6px; border:1px solid #334155;">
-                    💡 <b>Trạng thái mạng thực tế:</b> Cáp có dây Laptop: <b style="color:${rj45Plugged ? '#4ade80' : '#f87171'};">${rj45Plugged ? 'ĐÃ CẮM' : 'CHƯA CẮM'}</b> | Cáp Switch: <b style="color:${switchPlugged ? '#4ade80' : '#f87171'};">${switchPlugged ? 'CỔNG ' + selectedSwitchPort : 'CHƯA CẮM'}</b> | Wi-Fi Win 11: <b style="color:${wifiConnected ? '#4ade80' : '#f87171'};">${wifiConnected ? 'ĐÃ KẾT NỐI' : 'CHƯA KẾT NỐI'}</b>.
+                <div style="font-size:0.74rem; color:#94a3b8; background:#131c2e; padding:6px 12px; border-radius:6px; border:1px solid #334155; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+                    <div>💡 <b>Chi tiết kết nối:</b> Cáp Laptop: <b style="color:${rj45Plugged ? '#4ade80' : '#f87171'};">${rj45Plugged ? 'ĐÃ CẮM' : 'CHƯA CẮM'}</b> &bull; Cáp Switch Cổng ${selectedSwitchPort}: <b style="color:${switchPlugged ? '#4ade80' : '#f87171'};">${switchPlugged ? 'ĐÃ CẮM' : 'CHƯA CẮM'}</b> &bull; Wi-Fi: <b style="color:${wifiConnected ? '#4ade80' : '#94a3b8'};">${wifiConnected ? 'ĐÃ KẾT NỐI' : 'CHƯA KẾT NỐI'}</b>.</div>
+                    <div><button class="btn btn-outline" style="padding:2px 8px; font-size:0.7rem;" onclick="setTab3SubMode('plug_lab')">🔌 Sang Cắm Cáp RJ45</button></div>
                 </div>
             </div>
         `;
